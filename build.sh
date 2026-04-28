@@ -1,12 +1,9 @@
 #!/bin/bash
 
-echo "Building Classic 2D Game..."
+echo "Building Classic 2D Game with JavaFX..."
 
-# Create target directory if it doesn't exist
-mkdir -p target/classes
-
-# Compile all Java files
-javac -d target/classes src/main/java/com/game/**/*.java
+# Build using Maven
+mvn clean compile
 
 if [ $? -eq 0 ]; then
     echo "Build successful!"

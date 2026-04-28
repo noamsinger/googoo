@@ -2,10 +2,10 @@ package com.game.ui;
 
 public class MenuItem {
     private String text;
-    private int x;
-    private int y;
+    private double x;
+    private double y;
 
-    public MenuItem(String text, int x, int y) {
+    public MenuItem(String text, double x, double y) {
         this.text = text;
         this.x = x;
         this.y = y;
@@ -15,11 +15,11 @@ public class MenuItem {
         return text;
     }
 
-    public int getX() {
+    public double getX() {
         return x;
     }
 
-    public int getY() {
+    public double getY() {
         return y;
     }
 }

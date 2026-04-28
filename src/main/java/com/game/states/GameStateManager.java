@@ -1,6 +1,7 @@
 package com.game.states;
 
-import java.awt.Graphics2D;
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.input.KeyCode;
 import java.util.Stack;
 
 public class GameStateManager {
@@ -28,25 +29,25 @@ public class GameStateManager {
         }
     }
 
-    public void update() {
+    public void update(double deltaTime) {
         if (!states.isEmpty()) {
-            states.peek().update();
+            states.peek().update(deltaTime);
         }
     }
 
-    public void render(Graphics2D g) {
+    public void render(GraphicsContext gc) {
         if (!states.isEmpty()) {
-            states.peek().render(g);
+            states.peek().render(gc);
         }
     }
 
-    public void keyPressed(int key) {
+    public void keyPressed(KeyCode key) {
         if (!states.isEmpty()) {
             states.peek().keyPressed(key);
         }
     }
 
-    public void keyReleased(int key) {
+    public void keyReleased(KeyCode key) {
         if (!states.isEmpty()) {
             states.peek().keyReleased(key);
         }

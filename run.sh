@@ -1,12 +1,13 @@
 #!/bin/bash
 
-echo "Starting Classic 2D Game..."
+echo "Starting Classic 2D Game with JavaFX..."
 
-# Check if compiled classes exist
-if [ ! -d "target/classes" ]; then
-    echo "Game not built yet. Running build.sh first..."
-    ./build.sh
-fi
+# Find and kill any existing JavaFX game processes
+pkill -f "javafx:run"
+pkill -f "com.game.core.Game"
 
-# Run the game
-java -cp target/classes com.game.core.Game
+# Give it a moment to clean up
+sleep 0.5
+
+# Run the game using Maven JavaFX plugin
+mvn javafx:run

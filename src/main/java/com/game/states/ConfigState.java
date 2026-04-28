@@ -1,9 +1,12 @@
 package com.game.states;
 
 import com.game.core.Game;
-
-import java.awt.*;
-import java.awt.event.KeyEvent;
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.input.KeyCode;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.scene.text.Text;
 
 public class ConfigState extends GameState {
 
@@ -17,41 +20,47 @@ public class ConfigState extends GameState {
     }
 
     @Override
-    public void update() {
+    public void update(double deltaTime) {
     }
 
     @Override
-    public void render(Graphics2D g) {
-        g.setColor(new Color(30, 30, 40));
-        g.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
+    public void render(GraphicsContext gc) {
+        gc.setFill(Color.rgb(30, 30, 40));
+        gc.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
 
-        g.setColor(Color.WHITE);
-        g.setFont(new Font("Arial", Font.BOLD, 36));
+        gc.setFill(Color.WHITE);
+        gc.setFont(Font.font("Arial", FontWeight.BOLD, 36));
         String title = "Configuration";
-        FontMetrics fm = g.getFontMetrics();
-        int x = (Game.WIDTH - fm.stringWidth(title)) / 2;
-        g.drawString(title, x, 150);
+        Text text = new Text(title);
+        text.setFont(gc.getFont());
+        double textWidth = text.getLayoutBounds().getWidth();
+        double x = (Game.WIDTH - textWidth) / 2;
+        gc.fillText(title, x, 150);
 
-        g.setFont(new Font("Arial", Font.PLAIN, 24));
+        gc.setFont(Font.font("Arial", FontWeight.NORMAL, 24));
         String msg = "Configuration options will go here";
-        fm = g.getFontMetrics();
-        x = (Game.WIDTH - fm.stringWidth(msg)) / 2;
-        g.drawString(msg, x, 300);
+        text = new Text(msg);
+        text.setFont(gc.getFont());
+        textWidth = text.getLayoutBounds().getWidth();
+        x = (Game.WIDTH - textWidth) / 2;
+        gc.fillText(msg, x, 300);
 
         String back = "Press ESC to return to menu";
-        fm = g.getFontMetrics();
-        x = (Game.WIDTH - fm.stringWidth(back)) / 2;
-        g.drawString(back, x, 400);
+        text = new Text(back);
+        text.setFont(gc.getFont());
+        textWidth = text.getLayoutBounds().getWidth();
+        x = (Game.WIDTH - textWidth) / 2;
+        gc.fillText(back, x, 400);
     }
 
     @Override
-    public void keyPressed(int key) {
-        if (key == KeyEvent.VK_ESCAPE) {
+    public void keyPressed(KeyCode key) {
+        if (key == KeyCode.ESCAPE) {
             gsm.setState(new MenuState(gsm));
         }
     }
 
     @Override
-    public void keyReleased(int key) {
+    public void keyReleased(KeyCode key) {
     }
 }
