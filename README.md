@@ -1,10 +1,10 @@
 # Classic 2D Game
 
-A classic 2D Java game built with Swing.
+A classic 2D Java game built with JavaFX.
 
 ## Architecture
 
-- **Game.java** - Main game loop and window management
+- **Game.java** - Main game loop and window management using JavaFX
 - **GameStateManager.java** - Manages game states (menu, play, config)
 - **GameState.java** - Abstract base class for all game states
 - **MenuState.java** - Main menu with Start, Config, Exit options
@@ -20,21 +20,22 @@ A classic 2D Java game built with Swing.
 
 ## Build & Run
 
-Using Maven:
+Using the provided scripts:
 ```bash
-mvn clean compile
-mvn exec:java -Dexec.mainClass="com.game.core.Game"
+./build.sh    # Build the game
+./run.sh      # Run the game (auto-builds if needed)
 ```
 
-Or compile and run directly:
+Using Maven directly:
 ```bash
-javac -d target/classes src/main/java/com/game/**/*.java
-java -cp target/classes com.game.core.Game
+mvn clean compile
+mvn javafx:run
 ```
 
 ## Features
 
-- 60 FPS game loop
+- Smooth AnimationTimer-based game loop
 - State-based architecture for easy expansion
 - Keyboard input handling
 - Classic menu navigation with arrow indicator
+- JavaFX Canvas rendering with anti-aliasing

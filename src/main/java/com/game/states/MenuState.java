@@ -2,9 +2,13 @@ package com.game.states;
 
 import com.game.core.Game;
 import com.game.ui.MenuItem;
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.input.KeyCode;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.scene.text.Text;
 
-import java.awt.*;
-import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,69 +25,75 @@ public class MenuState extends GameState {
 
     @Override
     public void init() {
-        titleFont = new Font("Arial", Font.BOLD, 48);
-        menuFont = new Font("Arial", Font.PLAIN, 32);
+        titleFont = Font.font("Arial", FontWeight.BOLD, 48);
+        menuFont = Font.font("Arial", FontWeight.NORMAL, 32);
 
         menuItems = new ArrayList<>();
-        menuItems.add(new MenuItem("Start", Game.WIDTH / 2, 300));
-        menuItems.add(new MenuItem("Config", Game.WIDTH / 2, 370));
-        menuItems.add(new MenuItem("Exit", Game.WIDTH / 2, 440));
+        menuItems.add(new MenuItem("Start", Game.WIDTH / 2.0, 300));
+        menuItems.add(new MenuItem("Config", Game.WIDTH / 2.0, 370));
+        menuItems.add(new MenuItem("Exit", Game.WIDTH / 2.0, 440));
 
         currentSelection = 0;
     }
 
     @Override
-    public void update() {
+    public void update(double deltaTime) {
     }
 
     @Override
-    public void render(Graphics2D g) {
-        g.setColor(new Color(20, 20, 30));
-        g.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
+    public void render(GraphicsContext gc) {
+        gc.setFill(Color.rgb(20, 20, 30));
+        gc.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
 
-        g.setFont(titleFont);
-        g.setColor(new Color(100, 200, 255));
+        gc.setFont(titleFont);
+        gc.setFill(Color.rgb(100, 200, 255));
         String title = Game.TITLE;
-        FontMetrics fm = g.getFontMetrics();
-        int titleX = (Game.WIDTH - fm.stringWidth(title)) / 2;
-        g.drawString(title, titleX, 150);
+        Text text = new Text(title);
+        text.setFont(titleFont);
+        double titleWidth = text.getLayoutBounds().getWidth();
+        double titleX = (Game.WIDTH - titleWidth) / 2;
+        gc.fillText(title, titleX, 150);
 
-        g.setFont(menuFont);
+        gc.setFont(menuFont);
         for (int i = 0; i < menuItems.size(); i++) {
             MenuItem item = menuItems.get(i);
+
+            text = new Text(item.getText());
+            text.setFont(menuFont);
+            double textWidth = text.getLayoutBounds().getWidth();
+            double textX = item.getX() - textWidth / 2;
+
             if (i == currentSelection) {
-                g.setColor(Color.YELLOW);
-                int arrowX = item.getX() - fm.stringWidth(item.getText()) / 2 - 40;
-                g.drawString(">", arrowX, item.getY());
+                gc.setFill(Color.YELLOW);
+                double arrowX = textX - 40;
+                gc.fillText(">", arrowX, item.getY());
             } else {
-                g.setColor(Color.WHITE);
+                gc.setFill(Color.WHITE);
             }
 
-            fm = g.getFontMetrics();
-            int textX = item.getX() - fm.stringWidth(item.getText()) / 2;
-            g.drawString(item.getText(), textX, item.getY());
+            gc.fillText(item.getText(), textX, item.getY());
         }
     }
 
     @Override
-    public void keyPressed(int key) {
-        if (key == KeyEvent.VK_UP) {
+    public void keyPressed(KeyCode key) {
+        if (key == KeyCode.UP) {
             currentSelection--;
             if (currentSelection < 0) {
-                currentSelection = menuItems.size() - 1;
-            }
-        } else if (key == KeyEvent.VK_DOWN) {
-            currentSelection++;
-            if (currentSelection >= menuItems.size()) {
                 currentSelection = 0;
             }
-        } else if (key == KeyEvent.VK_ENTER) {
+        } else if (key == KeyCode.DOWN) {
+            currentSelection++;
+            if (currentSelection >= menuItems.size()) {
+                currentSelection = menuItems.size() - 1;
+            }
+        } else if (key == KeyCode.ENTER) {
             selectMenuItem();
         }
     }
 
     @Override
-    public void keyReleased(int key) {
+    public void keyReleased(KeyCode key) {
     }
 
     private void selectMenuItem() {
