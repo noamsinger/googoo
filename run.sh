@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "Starting Classic 2D Game with JavaFX..."
+echo "Starting GooGoo Remake Game"
 
 # Find and kill any existing JavaFX game processes
 pkill -f "javafx:run"

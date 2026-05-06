@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "Building Classic 2D Game with JavaFX..."
+echo "Building GooGoo Remake Game"
 
 # Build using Maven
 mvn clean compile

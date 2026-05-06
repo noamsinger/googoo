@@ -52,4 +52,28 @@ public class GameStateManager {
             states.peek().keyReleased(key);
         }
     }
+
+    public void mouseMoved(double x, double y) {
+        if (!states.isEmpty()) {
+            states.peek().mouseMoved(x, y);
+        }
+    }
+
+    public void mouseClicked(double x, double y) {
+        if (!states.isEmpty()) {
+            states.peek().mouseClicked(x, y);
+        }
+    }
+
+    public void mousePressed(double x, double y) {
+        if (!states.isEmpty()) {
+            states.peek().mousePressed(x, y);
+        }
+    }
+
+    public void mouseReleased(double x, double y) {
+        if (!states.isEmpty()) {
+            states.peek().mouseReleased(x, y);
+        }
+    }
 }
