@@ -3,12 +3,12 @@ package com.game.states;
 import com.game.core.Game;
 import com.game.core.GameSettings;
 import com.game.core.ProgressManager;
+import com.game.util.TextUtils;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.input.KeyCode;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
-import javafx.scene.text.Text;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -92,10 +92,7 @@ public class ConfigState extends GameState {
         gc.setFont(titleFont);
         gc.setFill(Color.rgb(100, 200, 255));
         String title = "Settings";
-        Text text = new Text(title);
-        text.setFont(titleFont);
-        double titleWidth = text.getLayoutBounds().getWidth();
-        double titleX = (Game.WINDOW_WIDTH - titleWidth) / 2;
+        double titleX = TextUtils.centerTextX(title, titleFont, Game.WINDOW_WIDTH);
         gc.fillText(title, titleX, 100);
 
         GameSettings settings = GameSettings.getInstance();
@@ -132,10 +129,8 @@ public class ConfigState extends GameState {
         gc.setFont(Font.font("Arial", FontWeight.NORMAL, 18));
         gc.setFill(Color.LIGHTGRAY);
         String instructions = "Use UP/DOWN to navigate, LEFT/RIGHT to change values, ENTER to select";
-        text = new Text(instructions);
-        text.setFont(gc.getFont());
-        double instrWidth = text.getLayoutBounds().getWidth();
-        gc.fillText(instructions, (Game.WINDOW_WIDTH - instrWidth) / 2, Game.WINDOW_HEIGHT - 50);
+        double instrX = TextUtils.centerTextX(instructions, gc.getFont(), Game.WINDOW_WIDTH);
+        gc.fillText(instructions, instrX, Game.WINDOW_HEIGHT - 50);
     }
 
     private void renderOption(GraphicsContext gc, String label, String value, double y, boolean selected) {
