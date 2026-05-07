@@ -4,6 +4,7 @@ import com.game.core.Game;
 import com.game.ui.MenuItem;
 import com.game.util.TextUtils;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
@@ -20,6 +21,7 @@ public class MenuState extends GameState {
     private int currentSelection;
     private Font titleFont;
     private Font menuFont;
+    private Image backgroundImage;
 
     public MenuState(GameStateManager gsm) {
         super(gsm);
@@ -32,6 +34,14 @@ public class MenuState extends GameState {
 
         titleFont = Font.font("Arial", FontWeight.BOLD, 48);
         menuFont = Font.font("Arial", FontWeight.NORMAL, 32);
+
+        // Load background image
+        try {
+            backgroundImage = new Image(getClass().getResourceAsStream("/images/background.png"));
+        } catch (Exception e) {
+            LOGGER.warning("Failed to load background image: " + e.getMessage());
+            backgroundImage = null;
+        }
 
         // Store menu items with text only - positions will be calculated dynamically during render
         menuItems = new ArrayList<>();
@@ -52,8 +62,13 @@ public class MenuState extends GameState {
         double canvasWidth = Game.gameWidth;
         double canvasHeight = Game.gameHeight;
 
-        gc.setFill(Color.rgb(20, 20, 30));
-        gc.fillRect(0, 0, canvasWidth, canvasHeight);
+        // Draw background image or fallback to solid color
+        if (backgroundImage != null) {
+            gc.drawImage(backgroundImage, 0, 0, canvasWidth, canvasHeight);
+        } else {
+            gc.setFill(Color.rgb(20, 20, 30));
+            gc.fillRect(0, 0, canvasWidth, canvasHeight);
+        }
 
         gc.setFont(titleFont);
         gc.setFill(Color.rgb(100, 200, 255));

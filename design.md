@@ -36,27 +36,38 @@ The game progresses through levels with enemies and black holes appearing at spe
 After 16 pairs (level 32), color schemes wrap around: Level 34 uses colorScheme 0 again.
 
 #### Enemies (appear on ODD levels)
-- **Level 1**: Enemy 0 (enemyType 0)
-- **Level 3**: Enemy 1 (enemyType 1)
-- **Level 5**: Enemy 2 (enemyType 2)
-- **Level (2N+1)**: Enemy N (enemyType N % 16)
 
-**Formula**: At odd level L, enemy index = ((L-1)/2), enemyType = ((L-1)/2) % 16
+Enemies appear in skill-progressive order based on the formula:
+```
+enemyIndex = (L - 1) / 2
+enemyType = APPEARANCE_ORDER[enemyIndex % 16]
+```
 
-After 16 enemies (level 31), enemy types wrap around: Level 33 spawns enemyType 0 again.
+**Appearance Order**: 0, 1, 2, 4, 8, 3, 5, 6, 9, 10, 12, 7, 11, 13, 14, 15
 
-#### Starting at Level K
+This creates a progression from 0 skills → 1 skill → 2 skills → 3 skills → 4 skills:
+- **Level 1**: Enemy 0 (no skills)
+- **Level 3**: Enemy 1 (wiggle only)
+- **Level 5**: Enemy 2 (fast rotation only)
+- **Level 7**: Enemy 4 (prediction only)
+- **Level 9**: Enemy 8 (random speed only)
+- **Level 11**: Enemy 3 (wiggle + fast rotation)
+- And so on...
+
+After all 16 types cycle (level 31), the pattern repeats.
+
+**Starting at Level K
 When starting at level K > 1:
 - **Black holes**: Spawn all pairs from levels 2, 4, 6, ... up to floor(K/2)*2
   - Pairs: 0, 1, 2, ..., (K/2 - 1) with colorSchemes modulo 16
-- **Enemies**: Spawn all enemies from levels 1, 3, 5, ... up to (K-1 if K even, K if K odd)
-  - Enemies: 0, 1, 2, ..., floor(K/2) with enemyTypes modulo 16
+- **Enemies**: Spawn all enemies from levels 1, 3, 5, ... following the appearance order
+  - Uses APPEARANCE_ORDER array for skill-progressive spawning
 
 **Examples:**
-- Level 1: 0 black hole pairs, 1 enemy (type 0)
-- Level 5: 2 black hole pairs (schemes 0, 1), 3 enemies (types 0, 1, 2)
-- Level 10: 5 black hole pairs (schemes 0-4), 5 enemies (types 0-4)
-- Level 33: 16 black hole pairs (schemes 0-15), 17 enemies (types 0-15, 0)
+- Level 1: 0 black hole pairs, 1 enemy (type 0 - no skills)
+- Level 5: 2 black hole pairs (schemes 0, 1), 3 enemies (types 0, 1, 2 - progression of skills)
+- Level 10: 5 black hole pairs (schemes 0-4), 5 enemies (types from appearance order)
+- Level 33: 16 black hole pairs (schemes 0-15), 17 enemies (full cycle + type 0 again)
 
 ### Scoring System
 - **Gem Collection**: Score increases by collecting gems
@@ -99,13 +110,13 @@ Enemies use bit-flag system for behavior combinations:
 - **Base Behavior** (all enemies):
   - Navigate toward player at 0.5 of player's max speed
   - Rotation speed is 1/3 of player's rotation speed
-  - Accelerate at half the player's acceleration rate
+  - Accelerate at half the player's acceleration rate when player accelerates
   - Instantly decelerate to match player speed when player slows down
 
-- **0x01 (Wiggle)**: Adds sinusoidal direction variation (±45°)
-- **0x02 (Speed Oscillation)**: Speed varies between 0.5 current player speed and 0.9 max player speed
-- **0x04 (Predictive Targeting)**: Aims at predicted player position 2 seconds ahead (includes rolling state estimation)
-- **0x08 (Fast Rotation)**: Rotation speed is 2x player's rotation speed (instead of 1/3)
+- **0x01 (Wiggle)**: Direction modified by 45° × sin(time × π)
+- **0x02 (Fast Rotation)**: Rotation speed is 3× player's rotation speed (instead of 1/3)
+- **0x04 (Prediction)**: Targets predicted position 0.1-1.5 seconds ahead (includes rolling state estimation, randomized every 10s)
+- **0x08 (Random Speed)**: Speed randomly varies between 0.5 and 1.1 of max speed with unique intervals (5-15s) per enemy, using starship's acceleration/deceleration rates
 
 #### Blind Steering
 - When player enters wormhole, enemies lose tracking
@@ -130,6 +141,11 @@ Enemies use bit-flag system for behavior combinations:
 - Shows game state information
 
 ## Visual Design
+
+### Background
+- **Menu State**: Space-themed galaxy background with nebulae and stars
+- **Config State**: Same galaxy background for visual consistency
+- **Play State**: Dynamic starfield with parallax effect
 
 ### Color Schemes
 - **Spaceship**: Blue-themed with white accents
@@ -227,8 +243,11 @@ vy = sin(angle) × speed × deltaTime
 x += vx
 y += vy
 
-// Boundary collision reduces speed by 20%
-if (hit_boundary) speed = max(minSpeed, speed × 0.8)
+// Boundary wrapping
+if (x < 0) x += gameWidth
+if (x > gameWidth) x -= gameWidth
+if (y < 0) y += gameHeight
+if (y > gameHeight) y -= gameHeight
 ```
 
 **Mouse Navigation Mode:**
@@ -284,25 +303,32 @@ else (expanding)
 
 **Enemy Speed Calculation:**
 ```
-// Base target speed (all enemies)
+// Base target speed (all enemies without skill 0x08)
 baseTargetSpeed = spaceship.maxSpeed × 0.5
 
-// Skill 0x02: Speed Oscillation
-if (enemyType & 0x02)
-    oscillation = (sin(speedOscillationTimer × π × 0.5) + 1.0) / 2.0
-    minSpeed = spaceship.maxSpeed × 0.3
-    maxSpeed = spaceship.maxSpeed × 0.9
-    baseTargetSpeed = minSpeed + oscillation × (maxSpeed - minSpeed)
-    // Period: 4 seconds (full sine wave)
-
-// Adaptive speed matching
-if (spaceship_accelerating)
-    spaceshipAccelRate = (spaceship.speed - previousSpeed) / deltaTime
-    speed += (spaceshipAccelRate × 0.5) × deltaTime
-else if (spaceship_decelerating)
-    speed = spaceship.speed  // Instant match
+// Skill 0x08: Random Speed Variation (per enemy)
+if (enemyType & 0x08)
+    // Each enemy has unique target speed and update interval
+    speedChangeTimer += deltaTime
+    if (speedChangeTimer >= speedChangeInterval)  // 5-15 seconds, unique per enemy
+        targetSpeed = spaceship.maxSpeed × (0.5 + random(0, 0.6))  // 0.5 to 1.1
+        speedChangeInterval = 5.0 + random(0, 10.0)  // New random interval
+    
+    // Accelerate/decelerate using starship's rates
+    if (speed < targetSpeed)
+        speed += spaceship.accelerationRate × deltaTime
+    else if (speed > targetSpeed)
+        speed -= spaceship.decelerationRate × deltaTime
 else
-    speed += (baseTargetSpeed - speed) × min(1.0, deltaTime × 2.0)
+    // Normal enemies: adaptive speed matching
+    if (spaceship_accelerating)
+        spaceshipAccelRate = (spaceship.speed - previousSpeed) / deltaTime
+        speed += (spaceshipAccelRate × 0.5) × deltaTime
+        speed = min(speed, baseTargetSpeed)  // Cap at 0.5 of max
+    else if (spaceship_decelerating)
+        speed = spaceship.speed  // Instant match
+    else
+        speed += (baseTargetSpeed - speed) × min(1.0, deltaTime × 2.0)
 ```
 
 **Enemy Rotation:**
@@ -310,8 +336,8 @@ else
 // Calculate angle to target
 targetAngle = atan2(targetY - y, targetX - x)
 
-// Rotation speed based on skill 0x08
-if (enemyType & 0x08)
+// Rotation speed based on skill 0x02
+if (enemyType & 0x02)
     rotationSpeed = spaceship.rotationSpeed × 3.0  // Fast rotation
 else
     rotationSpeed = spaceship.rotationSpeed / 3.0  // Normal (slow)

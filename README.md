@@ -20,27 +20,30 @@ A remake of the classic GooGoo space shooter game built with JavaFX featuring pr
 - **Rainbow score display** - cycles through 6 colors every 10 seconds
 - **Fade-in effects** - all spawning objects fade in over 1 second
 - **Rich color palettes** - unique themes for each enemy type
+- **Space-themed backgrounds** - galaxy background on menu and config screens
 
 ### Enemy AI System
 Enemies use bit-flag combinations for complex behaviors:
-- **Base**: Navigate toward player at 0.5 max speed
-- **0x01**: Wiggle movement pattern
-- **0x02**: Oscillating speed (0.5-0.9 of max)
-- **0x04**: Predictive targeting (2 seconds ahead with roll estimation)
-- **0x08**: Double rotation speed
+- **Base**: Navigate toward player at 0.5 max speed, rotation 3× slower than player
+- **0x01 (Wiggle)**: Direction modified by 45° × sin(time × π)
+- **0x02 (Fast Rotation)**: Can rotate 3× faster than player (instead of 3× slower)
+- **0x04 (Prediction)**: Targets predicted position 0.1-1.5s ahead with roll estimation
+- **0x08 (Random Speed)**: Unique random speeds (0.5-1.1× max) with starship's acceleration/deceleration
 
 ## Controls
 
 ### Menu Navigation
 - **UP/DOWN Arrow Keys** - Navigate menu options
-- **ENTER** - Select menu option
+- **LEFT/RIGHT Arrow Keys** - Change option values
+- **ENTER** - Select menu option / Confirm
 - **ESC** - Return to main menu
+- **Mouse** - Hover and click menu items
 
 ### Gameplay
 - **LEFT/RIGHT Arrow Keys** - Roll and turn the spaceship
 - **UP Arrow** - Accelerate
 - **DOWN Arrow** - Decelerate/brake
-- **SPACE** - Fire projectiles
+- **Mouse Click** - Set navigation target
 - **D** - Toggle debug mode
 - **ESC** - Return to main menu
 
@@ -68,16 +71,34 @@ Enemies use bit-flag combinations for complex behaviors:
 
 ## Build & Run
 
-### Using Scripts
+### Quick Start (macOS)
 ```bash
-./build.sh    # Build the game
-./run.sh      # Run the game (auto-builds if needed)
+./build.sh        # Build Mac .app bundle with icon and single-instance checking
+./run.sh          # Run the game (auto-builds if needed)
 ```
+
+The build creates a native macOS application (`target/GooGoo.app`) with:
+- Custom application icon
+- Single-instance checking (prevents multiple copies from running)
+- Automatic lock file cleanup
+- No Java installation required for end users (when packaged with JRE)
+
+### Development Mode
+```bash
+mvn javafx:run    # Run directly with Maven (fast iteration)
+```
+
+### Packaging for Distribution
+```bash
+./package.sh      # Create platform-specific installer (.dmg for macOS)
+```
+See [PACKAGING.md](PACKAGING.md) for detailed packaging instructions.
 
 ### Using Maven
 ```bash
-mvn clean compile
-mvn javafx:run
+mvn clean compile # Compile the project
+mvn package       # Build JAR file
+mvn javafx:run    # Run the application
 ```
 
 ## Technical Features

@@ -5,6 +5,7 @@ import com.game.core.GameSettings;
 import com.game.core.ProgressManager;
 import com.game.util.TextUtils;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
@@ -12,8 +13,11 @@ import javafx.scene.text.FontWeight;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 public class ConfigState extends GameState {
+    private static final Logger LOGGER = Logger.getLogger(ConfigState.class.getName());
+
     private enum ConfigOption {
         STARTING_LEVEL,
         RESOLUTION,
@@ -25,6 +29,7 @@ public class ConfigState extends GameState {
     private Font titleFont;
     private Font optionFont;
     private Font valueFont;
+    private Image backgroundImage;
 
     // For level selection
     private List<String> availableLevelOptions;
@@ -40,6 +45,15 @@ public class ConfigState extends GameState {
         titleFont = Font.font("Arial", FontWeight.BOLD, 48);
         optionFont = Font.font("Arial", FontWeight.NORMAL, 28);
         valueFont = Font.font("Arial", FontWeight.BOLD, 28);
+
+        // Load background image
+        try {
+            backgroundImage = new Image(getClass().getResourceAsStream("/images/background.png"));
+        } catch (Exception e) {
+            LOGGER.warning("Failed to load background image: " + e.getMessage());
+            backgroundImage = null;
+        }
+
         updateAvailableLevels();
     }
 
@@ -89,8 +103,13 @@ public class ConfigState extends GameState {
         double canvasWidth = Game.gameWidth;
         double canvasHeight = Game.gameHeight;
 
-        gc.setFill(Color.rgb(20, 20, 30));
-        gc.fillRect(0, 0, canvasWidth, canvasHeight);
+        // Draw background image or fallback to solid color
+        if (backgroundImage != null) {
+            gc.drawImage(backgroundImage, 0, 0, canvasWidth, canvasHeight);
+        } else {
+            gc.setFill(Color.rgb(20, 20, 30));
+            gc.fillRect(0, 0, canvasWidth, canvasHeight);
+        }
 
         // Title
         gc.setFont(titleFont);

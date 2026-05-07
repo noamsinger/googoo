@@ -1788,7 +1788,6 @@ public class PlayState extends GameState {
         double animationTimer = 0.0;
         int currentFrame = 0;
         double previousSpaceshipSpeed; // Track spaceship speed to detect acceleration/deceleration
-        double speedOscillationTimer = 0.0; // For skill 0x02 speed oscillation
         double fadeInTimer = 0.0; // Fade in effect
         double fadeInDuration = 1.0; // 1 second fade in
 
@@ -1804,6 +1803,11 @@ public class PlayState extends GameState {
         double predictionUpdateTimer = 0.0; // Time since last prediction update
         double predictionUpdateInterval = 10.0; // Update every 10 seconds
 
+        // Skill 0x08: Random speed variation
+        double targetSpeed = 0.0; // Random target speed between 0.5 and 1.1 of max speed
+        double speedChangeTimer = 0.0;
+        double speedChangeInterval = 0.0; // Unique random interval for each enemy
+
         Random rng = new Random();
 
         Enemy(double x, double y, int enemyType) {
@@ -1811,7 +1815,7 @@ public class PlayState extends GameState {
             this.y = y;
             this.enemyType = enemyType;
             this.previousSpaceshipSpeed = spaceship.speed;
-            this.speed = spaceship.speed * 0.5; // Start at 0.5 of spaceship's current speed
+            this.speed = spaceship.maxSpeed * 0.5; // Start at 0.5 of spaceship's max speed
             this.angle = rng.nextDouble() * 2 * Math.PI;
 
             // Initialize random blind target
@@ -1820,6 +1824,15 @@ public class PlayState extends GameState {
             // Initialize random prediction time for skill 0x04
             if (hasPredictionSkill()) {
                 predictionTime = 0.1 + rng.nextDouble() * 1.4; // 0.1 to 1.5 seconds
+            }
+
+            // Initialize random speed target and interval for skill 0x08
+            if (hasRandomSpeedSkill()) {
+                // Each enemy gets a unique initial target speed
+                targetSpeed = spaceship.maxSpeed * (0.5 + rng.nextDouble() * 0.6); // 0.5 to 1.1 of max
+                speed = targetSpeed; // Start at the target speed
+                // Each enemy gets a unique random interval (5-15 seconds)
+                speedChangeInterval = 5.0 + rng.nextDouble() * 10.0;
             }
         }
 
@@ -1833,7 +1846,7 @@ public class PlayState extends GameState {
             return (enemyType & 0x01) != 0;
         }
 
-        boolean hasSpeedOscillationSkill() {
+        boolean hasFastRotationSkill() {
             return (enemyType & 0x02) != 0;
         }
 
@@ -1841,7 +1854,7 @@ public class PlayState extends GameState {
             return (enemyType & 0x04) != 0;
         }
 
-        boolean hasZigZagSkill() {
+        boolean hasRandomSpeedSkill() {
             return (enemyType & 0x08) != 0;
         }
 
@@ -1879,39 +1892,57 @@ public class PlayState extends GameState {
                 blindSteeringTimer = 0.0;
             }
 
-            // Determine target speed based on spaceship
-            double baseTargetSpeed = spaceship.maxSpeed * 0.5;
-
-            // Skill 0x02: Speed oscillates between 0.3 of max plane speed and 0.9 of plane's max speed
-            if (hasSpeedOscillationSkill()) {
-                speedOscillationTimer += deltaTime;
-                // Oscillate with 4 second period (0 to 1 range)
-                double oscillation = (Math.sin(speedOscillationTimer * Math.PI * 0.5) + 1.0) / 2.0;
-                // Map between 0.3 of max speed and 0.9 of max speed
-                double minSpeed = spaceship.maxSpeed * 0.3;
-                double maxSpeed = spaceship.maxSpeed * 0.9;
-                baseTargetSpeed = minSpeed + oscillation * (maxSpeed - minSpeed);
-            }
-
-            // Detect if spaceship is accelerating or decelerating
-            boolean spaceshipAccelerating = spaceship.speed > previousSpaceshipSpeed;
-            boolean spaceshipDecelerating = spaceship.speed < previousSpaceshipSpeed;
-
-            if (spaceshipAccelerating) {
-                // Accelerate at half the spaceship's rate
-                double spaceshipAccelRate = (spaceship.speed - previousSpaceshipSpeed) / deltaTime;
-                speed += (spaceshipAccelRate * 0.5) * deltaTime;
-
-                // Clamp to target speed (don't exceed 0.5 of spaceship speed, unless skill 0x02)
-                if (!hasSpeedOscillationSkill() && speed > baseTargetSpeed) {
-                    speed = baseTargetSpeed;
+            // Determine target speed and handle acceleration/deceleration
+            if (hasRandomSpeedSkill()) {
+                // Skill 0x08: Random speed with unique intervals per enemy
+                // Update target speed at unique intervals
+                speedChangeTimer += deltaTime;
+                if (speedChangeTimer >= speedChangeInterval) {
+                    speedChangeTimer = 0.0;
+                    // Pick new random target speed between 0.5 and 1.1 of max
+                    targetSpeed = spaceship.maxSpeed * (0.5 + rng.nextDouble() * 0.6);
+                    // Pick new random interval for next change (5-15 seconds)
+                    speedChangeInterval = 5.0 + rng.nextDouble() * 10.0;
                 }
-            } else if (spaceshipDecelerating) {
-                // Instantly match spaceship speed
-                speed = spaceship.speed;
+
+                // Accelerate/decelerate toward target using starship's rates
+                if (speed < targetSpeed) {
+                    // Accelerate at starship's acceleration rate
+                    speed += spaceship.accelerationRate * deltaTime;
+                    if (speed > targetSpeed) {
+                        speed = targetSpeed;
+                    }
+                } else if (speed > targetSpeed) {
+                    // Decelerate at starship's deceleration rate
+                    speed -= spaceship.decelerationRate * deltaTime;
+                    if (speed < targetSpeed) {
+                        speed = targetSpeed;
+                    }
+                }
             } else {
-                // Spaceship speed unchanged - gradually converge to target speed
-                speed += (baseTargetSpeed - speed) * Math.min(1.0, deltaTime * 2.0);
+                // Normal enemies: track at 0.5 of max speed with acceleration/deceleration rules
+                double baseTargetSpeed = spaceship.maxSpeed * 0.5;
+
+                // Detect if spaceship is accelerating or decelerating
+                boolean spaceshipAccelerating = spaceship.speed > previousSpaceshipSpeed;
+                boolean spaceshipDecelerating = spaceship.speed < previousSpaceshipSpeed;
+
+                if (spaceshipAccelerating) {
+                    // Accelerate at half the spaceship's rate
+                    double spaceshipAccelRate = (spaceship.speed - previousSpaceshipSpeed) / deltaTime;
+                    speed += (spaceshipAccelRate * 0.5) * deltaTime;
+
+                    // Clamp to target speed (don't exceed 0.5 of max speed)
+                    if (speed > baseTargetSpeed) {
+                        speed = baseTargetSpeed;
+                    }
+                } else if (spaceshipDecelerating) {
+                    // Instantly match spaceship speed
+                    speed = spaceship.speed;
+                } else {
+                    // Spaceship speed unchanged - gradually converge to target speed
+                    speed += (baseTargetSpeed - speed) * Math.min(1.0, deltaTime * 2.0);
+                }
             }
 
             // Update previous spaceship speed for next frame
@@ -1974,10 +2005,10 @@ public class PlayState extends GameState {
             double dy = targetY - y;
             double targetAngle = Math.atan2(dy, dx);
 
-            // Determine rotation speed based on skill 0x08
+            // Determine rotation speed based on skill 0x02
             double rotationSpeed;
-            if (hasZigZagSkill()) {
-                // Skill 0x08: Rotate 3 times faster than the plane
+            if (hasFastRotationSkill()) {
+                // Skill 0x02: Rotate 3 times faster than the plane
                 rotationSpeed = spaceship.rotationSpeed * 3.0;
             } else {
                 // Normal: 3 times slower than the spaceship's rotation speed
@@ -1998,8 +2029,7 @@ public class PlayState extends GameState {
             // Calculate movement angle (with wiggle if applicable)
             double moveAngle = angle;
 
-            // Skill 0x01 != 0: Wiggle - add sinusoidal variation to direction (45 degrees)
-            // Affects enemies: 1, 3, 5, 7, 9, 11, 13, 15
+            // Skill 0x01: Wiggle - add sinusoidal variation to direction (45 degrees * sin(time * pi))
             if (hasWiggleSkill()) {
                 double wiggle = Math.toRadians(45) * Math.sin(gameTime * Math.PI);
                 moveAngle += wiggle;
