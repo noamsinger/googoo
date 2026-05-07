@@ -2,16 +2,15 @@ package com.game.states;
 
 import com.game.core.Game;
 import com.game.ui.MenuItem;
+import com.game.util.TextUtils;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.input.KeyCode;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
-import javafx.scene.text.Text;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class MenuState extends GameState {
@@ -54,20 +53,15 @@ public class MenuState extends GameState {
         gc.setFont(titleFont);
         gc.setFill(Color.rgb(100, 200, 255));
         String title = Game.TITLE;
-        Text text = new Text(title);
-        text.setFont(titleFont);
-        double titleWidth = text.getLayoutBounds().getWidth();
-        double titleX = (Game.WINDOW_WIDTH - titleWidth) / 2;
+        double titleX = TextUtils.centerTextX(title, titleFont, Game.WINDOW_WIDTH);
         gc.fillText(title, titleX, Game.WINDOW_HEIGHT / 3.0);
 
         gc.setFont(menuFont);
         for (int i = 0; i < menuItems.size(); i++) {
             MenuItem item = menuItems.get(i);
 
-            text = new Text(item.getText());
-            text.setFont(menuFont);
-            double textWidth = text.getLayoutBounds().getWidth();
-            double textHeight = text.getLayoutBounds().getHeight();
+            double textWidth = TextUtils.measureTextWidth(item.getText(), menuFont);
+            double textHeight = TextUtils.measureTextHeight(item.getText(), menuFont);
             double textX = item.getX() - textWidth / 2;
 
             if (i == currentSelection) {
@@ -111,10 +105,8 @@ public class MenuState extends GameState {
         for (int i = 0; i < menuItems.size(); i++) {
             MenuItem item = menuItems.get(i);
 
-            Text text = new Text(item.getText());
-            text.setFont(menuFont);
-            double textWidth = text.getLayoutBounds().getWidth();
-            double textHeight = text.getLayoutBounds().getHeight();
+            double textWidth = TextUtils.measureTextWidth(item.getText(), menuFont);
+            double textHeight = TextUtils.measureTextHeight(item.getText(), menuFont);
 
             double left = item.getX() - textWidth / 2 - 20;
             double right = left + textWidth + 40;
@@ -133,10 +125,8 @@ public class MenuState extends GameState {
         for (int i = 0; i < menuItems.size(); i++) {
             MenuItem item = menuItems.get(i);
 
-            Text text = new Text(item.getText());
-            text.setFont(menuFont);
-            double textWidth = text.getLayoutBounds().getWidth();
-            double textHeight = text.getLayoutBounds().getHeight();
+            double textWidth = TextUtils.measureTextWidth(item.getText(), menuFont);
+            double textHeight = TextUtils.measureTextHeight(item.getText(), menuFont);
 
             double left = item.getX() - textWidth / 2 - 20;
             double right = left + textWidth + 40;

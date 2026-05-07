@@ -18,8 +18,8 @@ import java.util.logging.Logger;
 public class Game extends Application {
     private static final Logger LOGGER = Logger.getLogger(Game.class.getName());
 
-    public final static int WINDOW_WIDTH = 1024;
-    public final static int WINDOW_HEIGHT = 768;
+    public static final int WINDOW_WIDTH = 1024;
+    public static final int WINDOW_HEIGHT = 768;
     public static int GAME_MAX_WIDTH = 2560;
     public static int GAME_MAX_HEIGHT = 1440;
     public static int gameWidth = WINDOW_WIDTH;  // Start with window dimensions
@@ -63,41 +63,11 @@ public class Game extends Application {
             gsm.keyPressed(e.getCode());
         });
         scene.setOnKeyReleased(e -> gsm.keyReleased(e.getCode()));
-        scene.setOnMouseMoved(e -> {
-            double canvasX = e.getSceneX() - (scene.getWidth() - canvas.getWidth()) / 2;
-            double canvasY = e.getSceneY() - (scene.getHeight() - canvas.getHeight()) / 2;
-            if (canvasX >= 0 && canvasX <= canvas.getWidth() && canvasY >= 0 && canvasY <= canvas.getHeight()) {
-                gsm.mouseMoved(canvasX, canvasY);
-            }
-        });
-        scene.setOnMouseDragged(e -> {
-            double canvasX = e.getSceneX() - (scene.getWidth() - canvas.getWidth()) / 2;
-            double canvasY = e.getSceneY() - (scene.getHeight() - canvas.getHeight()) / 2;
-            if (canvasX >= 0 && canvasX <= canvas.getWidth() && canvasY >= 0 && canvasY <= canvas.getHeight()) {
-                gsm.mouseMoved(canvasX, canvasY);
-            }
-        });
-        scene.setOnMouseClicked(e -> {
-            double canvasX = e.getSceneX() - (scene.getWidth() - canvas.getWidth()) / 2;
-            double canvasY = e.getSceneY() - (scene.getHeight() - canvas.getHeight()) / 2;
-            if (canvasX >= 0 && canvasX <= canvas.getWidth() && canvasY >= 0 && canvasY <= canvas.getHeight()) {
-                gsm.mouseClicked(canvasX, canvasY);
-            }
-        });
-        scene.setOnMousePressed(e -> {
-            double canvasX = e.getSceneX() - (scene.getWidth() - canvas.getWidth()) / 2;
-            double canvasY = e.getSceneY() - (scene.getHeight() - canvas.getHeight()) / 2;
-            if (canvasX >= 0 && canvasX <= canvas.getWidth() && canvasY >= 0 && canvasY <= canvas.getHeight()) {
-                gsm.mousePressed(canvasX, canvasY);
-            }
-        });
-        scene.setOnMouseReleased(e -> {
-            double canvasX = e.getSceneX() - (scene.getWidth() - canvas.getWidth()) / 2;
-            double canvasY = e.getSceneY() - (scene.getHeight() - canvas.getHeight()) / 2;
-            if (canvasX >= 0 && canvasX <= canvas.getWidth() && canvasY >= 0 && canvasY <= canvas.getHeight()) {
-                gsm.mouseReleased(canvasX, canvasY);
-            }
-        });
+        scene.setOnMouseMoved(e -> handleMouseEvent(e, (x, y) -> gsm.mouseMoved(x, y)));
+        scene.setOnMouseDragged(e -> handleMouseEvent(e, (x, y) -> gsm.mouseMoved(x, y)));
+        scene.setOnMouseClicked(e -> handleMouseEvent(e, (x, y) -> gsm.mouseClicked(x, y)));
+        scene.setOnMousePressed(e -> handleMouseEvent(e, (x, y) -> gsm.mousePressed(x, y)));
+        scene.setOnMouseReleased(e -> handleMouseEvent(e, (x, y) -> gsm.mouseReleased(x, y)));
 
         primaryStage.setScene(scene);
         primaryStage.setResizable(false);
@@ -244,5 +214,22 @@ public class Game extends Application {
         } else {
             LOGGER.warning("Cannot setFullscreen - primaryStage or canvas is null");
         }
+    }
+
+    /**
+     * Helper method to convert scene coordinates to canvas coordinates and dispatch to handler.
+     * Only dispatches if the coordinates are within canvas bounds.
+     */
+    private static void handleMouseEvent(javafx.scene.input.MouseEvent e, MouseEventHandler handler) {
+        double canvasX = e.getSceneX() - (scene.getWidth() - canvas.getWidth()) / 2;
+        double canvasY = e.getSceneY() - (scene.getHeight() - canvas.getHeight()) / 2;
+        if (canvasX >= 0 && canvasX <= canvas.getWidth() && canvasY >= 0 && canvasY <= canvas.getHeight()) {
+            handler.handle(canvasX, canvasY);
+        }
+    }
+
+    @FunctionalInterface
+    private interface MouseEventHandler {
+        void handle(double x, double y);
     }
 }

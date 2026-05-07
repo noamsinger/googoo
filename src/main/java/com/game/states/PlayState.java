@@ -5,12 +5,15 @@ import com.game.core.GameSettings;
 import com.game.core.ProgressManager;
 import com.game.core.LevelProgress;
 import com.game.util.BlackHoleSpriteLoader;
+import com.game.util.ColorMorphing;
 import com.game.util.EnemySpriteLoader;
 import com.game.util.ExplosionSpriteLoader;
 import com.game.util.GemSpriteLoader;
 import com.game.util.HeartSpriteLoader;
+import com.game.util.MathUtils;
 import com.game.util.StarshipExplosionSpriteLoader;
 import com.game.util.StarshipSpriteLoader;
+import com.game.util.TextUtils;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
@@ -29,9 +32,38 @@ public class PlayState extends GameState {
     private static final double REFERENCE_WIDTH = 1920.0;
     private static final double REFERENCE_HEIGHT = 1080.0;
 
+    // Game constants
+    private static final int STAR_COUNT = 400;
+    private static final double SCORE_COLOR_CYCLE_DURATION = 10.0; // seconds
+    private static final double COLLISION_DAMAGE_MULTIPLIER = 10.0;
+
+    // Physics and collision constants
+    private static final double BLACK_HOLE_RADIUS = 60.0; // Half of 120 pixel sprite size
+    private static final double ENEMY_RADIUS = 20.0; // Approximate enemy collision radius
+    private static final double REACHED_THRESHOLD = 30.0; // Target reached distance
+    private static final double BOUNDARY_MARGIN_BASE = 100.0; // Base margin for boundary avoidance
+    private static final double BOUNDARY_MARGIN_SPEED = 100.0; // Additional margin based on speed
+    private static final double EDGE_MARGIN = 150.0; // Margin for black holes from edges
+    private static final double CLAMP_MARGIN = 60.0; // Margin for position clamping
+    private static final double BOUNDARY_SPEED_REDUCTION = 0.8; // Speed reduced to 80% on boundary hit
+
+    // Timing constants
+    private static final double IMMUNITY_DURATION = 5.0; // 5 seconds of immunity after losing a life
+    private static final double LEVEL_DURATION = 60.0; // 60 seconds per level
+    private static final double LEVEL_MESSAGE_DURATION = 5.0; // Show level message for 5 seconds
+    private static final double DEBUG_MESSAGE_DURATION = 5.0; // Show debug message for 5 seconds
+    private static final double WORMHOLE_DURATION = 0.5; // 0.5 seconds for shrink/expand phases
+    private static final double SMOKE_INTERVAL = 0.05; // Emit smoke every 0.05 seconds
+    private static final double SPRITE_ANIMATION_INTERVAL = 0.25; // Change sprite frame every 0.25 seconds
+
     // Resolution scaling factors
     private double scaleX;
     private double scaleY;
+
+    // Cached resolution scale (geometric mean of scaleX and scaleY)
+    private double getResolutionScale() {
+        return Math.sqrt(scaleX * scaleY);
+    }
 
     private List<Star> stars;
     private Random random;
@@ -63,7 +95,6 @@ public class PlayState extends GameState {
     private int remainingLives = 3;
     private boolean isImmune = false; // Immunity after losing a life in 3-life mode
     private double immunityTimer = 0.0;
-    private double immunityDuration = 5.0; // 5 seconds of immunity
 
     // Starship explosion
     private StarshipExplosion starshipExplosion = null;
@@ -79,15 +110,12 @@ public class PlayState extends GameState {
     // Level system
     private int currentLevel;
     private double levelTimer = 0.0;
-    private double levelDuration = 60.0; // 60 seconds per level
     private double levelMessageTimer = 0.0;
-    private double levelMessageDuration = 5.0; // Show message for 5 seconds
     private boolean showLevelMessage = false;
 
     // Debug message display
     private boolean showDebugMessage = false;
     private double debugMessageTimer = 0.0;
-    private double debugMessageDuration = 5.0; // Show message for 5 seconds
     private String debugMessageText = "";
 
     public PlayState(GameStateManager gsm) {
@@ -119,7 +147,7 @@ public class PlayState extends GameState {
         random = new Random();
         stars = new ArrayList<>();
 
-        for (int i = 0; i < 400; i++) {
+        for (int i = 0; i < STAR_COUNT; i++) {
             stars.add(createStar());
         }
 
@@ -229,7 +257,7 @@ public class PlayState extends GameState {
 
     private void addBlackHolePair(int colorScheme) {
         double minPairDistance = Game.gameWidth / 2.0;
-        double margin = 100 * Math.sqrt(scaleX * scaleY); // Scale margin
+        double margin = BOUNDARY_MARGIN_BASE * getResolutionScale(); // Scale margin
 
         // Generate random position for first black hole
         double x1 = margin + random.nextDouble() * (Game.gameWidth - 2 * margin);
@@ -254,7 +282,7 @@ public class PlayState extends GameState {
 
     private void addEnemy(int enemyType) {
         double minDistance = Game.gameHeight;
-        double margin = 100 * Math.sqrt(scaleX * scaleY); // Scale margin
+        double margin = BOUNDARY_MARGIN_BASE * getResolutionScale(); // Scale margin
 
         // Generate random position at least screen height away from spaceship
         double x, y;
@@ -279,8 +307,8 @@ public class PlayState extends GameState {
     public void update(double deltaTime) {
         gameTime += deltaTime;
         scoreColorTimer += deltaTime;
-        if (scoreColorTimer >= 10.0) {
-            scoreColorTimer -= 10.0; // Reset after 10 seconds
+        if (scoreColorTimer >= SCORE_COLOR_CYCLE_DURATION) {
+            scoreColorTimer -= SCORE_COLOR_CYCLE_DURATION; // Reset after 10 seconds
         }
 
         // Update starship explosion if active
@@ -296,7 +324,7 @@ public class PlayState extends GameState {
         // Update immunity timer in 3-life mode
         if (gameMode == GameMode.LIVES && isImmune) {
             immunityTimer += deltaTime;
-            if (immunityTimer >= immunityDuration) {
+            if (immunityTimer >= IMMUNITY_DURATION) {
                 isImmune = false;
                 immunityTimer = 0.0;
                 LOGGER.fine("Immunity period ended");
@@ -307,8 +335,8 @@ public class PlayState extends GameState {
         if (!gameOver && starshipExplosion == null) {
             // Update level timer
             levelTimer += deltaTime;
-        if (levelTimer >= levelDuration) {
-            levelTimer -= levelDuration;
+        if (levelTimer >= LEVEL_DURATION) {
+            levelTimer -= LEVEL_DURATION;
             currentLevel++;
             showLevelMessage = true;
             levelMessageTimer = 0.0;
@@ -341,7 +369,7 @@ public class PlayState extends GameState {
         // Update level message timer
         if (showLevelMessage) {
             levelMessageTimer += deltaTime;
-            if (levelMessageTimer >= levelMessageDuration) {
+            if (levelMessageTimer >= LEVEL_MESSAGE_DURATION) {
                 showLevelMessage = false;
             }
         }
@@ -349,7 +377,7 @@ public class PlayState extends GameState {
         // Update debug message timer
         if (showDebugMessage) {
             debugMessageTimer += deltaTime;
-            if (debugMessageTimer >= debugMessageDuration) {
+            if (debugMessageTimer >= DEBUG_MESSAGE_DURATION) {
                 showDebugMessage = false;
             }
         }
@@ -392,7 +420,7 @@ public class PlayState extends GameState {
                     double dx1 = spaceship.x - first.x;
                     double dy1 = spaceship.y - first.y;
                     double dist1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
-                    double blackHoleRadius = 60.0 * Math.sqrt(scaleX * scaleY); // Half of 120 pixel sprite size, scaled
+                    double blackHoleRadius = BLACK_HOLE_RADIUS * getResolutionScale(); // Half of 120 pixel sprite size, scaled
                     double captureRadius = blackHoleRadius * 0.5;
 
                     if (dist1 < captureRadius) {
@@ -530,7 +558,7 @@ public class PlayState extends GameState {
         // Check for collisions between spaceship and enemies
         if (!spaceship.inWormhole && !gameOver && starshipExplosion == null) {
             double spaceshipRadius = spaceship.size / 2.0;
-            double enemyRadius = 20.0 * Math.sqrt(scaleX * scaleY); // Approximate enemy size
+            double enemyRadius = ENEMY_RADIUS * getResolutionScale(); // Approximate enemy size
 
             // Skip collision detection if in debug mode or if immune in LIVES mode
             GameSettings settings = GameSettings.getInstance();
@@ -567,7 +595,7 @@ public class PlayState extends GameState {
                             double impactEnergy = relativeSpeed / maxRelativeSpeed;
 
                             // Scale to 1-10% damage (minimum 1%, maximum 10%)
-                            double damage = Math.max(1.0, impactEnergy * 10.0);
+                            double damage = Math.max(1.0, impactEnergy * COLLISION_DAMAGE_MULTIPLIER);
 
                             LOGGER.fine(String.format("Collision: relativeSpeed=%.1f, maxRelativeSpeed=%.1f, damage=%.1f%%",
                                     relativeSpeed, maxRelativeSpeed, damage));
@@ -624,150 +652,182 @@ public class PlayState extends GameState {
 
     @Override
     public void render(GraphicsContext gc) {
+        renderBackground(gc);
+        renderBlackHoles(gc);
+        renderStars(gc);
+        renderSmokeClouds(gc);
+        renderSpaceship(gc);
+        renderGems(gc);
+        renderEnemies(gc);
+        renderHeart(gc);
+        renderEnemyExplosions(gc);
+        renderStarshipExplosion(gc);
+        renderUI(gc);
+    }
+
+    private void renderBackground(GraphicsContext gc) {
         gc.setFill(Color.rgb(5, 5, 15));
         gc.fillRect(0, 0, Game.gameWidth, Game.gameHeight);
+    }
 
-        // Render black holes first (behind everything)
+    private void renderBlackHoles(GraphicsContext gc) {
         for (BlackHole blackHole : blackHoles) {
             blackHole.render(gc);
         }
+    }
 
+    private void renderStars(GraphicsContext gc) {
         for (Star star : stars) {
             gc.setFill(Color.rgb(255, 255, 255, star.currentOpacity));
             gc.fillOval(star.x - star.size / 2, star.y - star.size / 2, star.size, star.size);
         }
+    }
 
-        // Render smoke clouds behind spaceship
+    private void renderSmokeClouds(GraphicsContext gc) {
         for (SmokeCloud cloud : smokeClouds) {
             cloud.render(gc);
         }
+    }
 
-        // Render spaceship (unless exploding or game over)
+    private void renderSpaceship(GraphicsContext gc) {
         if (starshipExplosion == null && !gameOver) {
             spaceship.render(gc);
+            renderShieldCircle(gc);
+        }
+    }
 
-            // Render immunity/protection shield circle
-            GameSettings settings = GameSettings.getInstance();
-            boolean debugMode = settings.isDebugMode();
-            if ((gameMode == GameMode.LIVES && isImmune) || debugMode) {
-                double circleRadius = spaceship.size * 1.5; // Circle 1.5x the spaceship size
+    private void renderShieldCircle(GraphicsContext gc) {
+        GameSettings settings = GameSettings.getInstance();
+        boolean debugMode = settings.isDebugMode();
+        if ((gameMode == GameMode.LIVES && isImmune) || debugMode) {
+            double circleRadius = spaceship.size * 1.5;
 
-                // Calculate pulsing effect
-                double pulseProgress;
-                Color circleColor;
+            double pulseProgress;
+            Color circleColor;
 
-                if (debugMode) {
-                    // Debug mode: constant golden shield, gentle pulse
-                    pulseProgress = (gameTime % 2.0) / 2.0; // Slower pulse (2 second cycle)
-                    double pulseScale = 0.95 + Math.sin(pulseProgress * Math.PI * 2) * 0.05; // Scale between 0.95 and 1.05
-                    double actualRadius = circleRadius * pulseScale;
-                    circleColor = Color.rgb(255, 215, 0, 0.7); // Gold with 70% opacity
+            if (debugMode) {
+                // Debug mode: constant golden shield, gentle pulse
+                pulseProgress = (gameTime % 2.0) / 2.0;
+                double pulseScale = 0.95 + Math.sin(pulseProgress * Math.PI * 2) * 0.05;
+                double actualRadius = circleRadius * pulseScale;
+                circleColor = Color.rgb(255, 215, 0, 0.7);
 
-                    gc.setStroke(circleColor);
-                    gc.setLineWidth(3.0);
-                    gc.strokeOval(
-                        spaceship.x - actualRadius,
-                        spaceship.y - actualRadius,
-                        actualRadius * 2,
-                        actualRadius * 2
-                    );
-                } else {
-                    // Lives immunity: cyan shield, faster pulse
-                    pulseProgress = (immunityTimer % 0.5) / 0.5; // Pulse every 0.5 seconds
-                    double pulseScale = 0.9 + Math.sin(pulseProgress * Math.PI * 2) * 0.1; // Scale between 0.9 and 1.1
-                    double actualRadius = circleRadius * pulseScale;
-                    circleColor = Color.rgb(0, 255, 255, 0.6); // Cyan with 60% opacity
+                gc.setStroke(circleColor);
+                gc.setLineWidth(3.0);
+                gc.strokeOval(
+                    spaceship.x - actualRadius,
+                    spaceship.y - actualRadius,
+                    actualRadius * 2,
+                    actualRadius * 2
+                );
+            } else {
+                // Lives immunity: cyan shield, faster pulse
+                pulseProgress = (immunityTimer % 0.5) / 0.5;
+                double pulseScale = 0.9 + Math.sin(pulseProgress * Math.PI * 2) * 0.1;
+                double actualRadius = circleRadius * pulseScale;
+                circleColor = Color.rgb(0, 255, 255, 0.6);
 
-                    gc.setStroke(circleColor);
-                    gc.setLineWidth(3.0);
-                    gc.strokeOval(
-                        spaceship.x - actualRadius,
-                        spaceship.y - actualRadius,
-                        actualRadius * 2,
-                        actualRadius * 2
-                    );
-                }
+                gc.setStroke(circleColor);
+                gc.setLineWidth(3.0);
+                gc.strokeOval(
+                    spaceship.x - actualRadius,
+                    spaceship.y - actualRadius,
+                    actualRadius * 2,
+                    actualRadius * 2
+                );
             }
         }
+    }
 
-        // Render starship explosion if active
-        if (starshipExplosion != null) {
-            starshipExplosion.render(gc);
-        }
-
-        // Render enemies
-        for (Enemy enemy : enemies) {
-            enemy.render(gc);
-        }
-
-        // Render gems
+    private void renderGems(GraphicsContext gc) {
         for (Gem gem : gems) {
             gem.render(gc);
         }
+    }
 
-        // Render heart if present
+    private void renderEnemies(GraphicsContext gc) {
+        for (Enemy enemy : enemies) {
+            enemy.render(gc);
+        }
+    }
+
+    private void renderHeart(GraphicsContext gc) {
         if (heart != null) {
             heart.render(gc);
         }
+    }
 
-        // Render enemy explosions
+    private void renderEnemyExplosions(GraphicsContext gc) {
         for (EnemyExplosion explosion : enemyExplosions) {
             explosion.render(gc);
         }
+    }
 
-        // Render level message if active
-        if (showLevelMessage) {
-            // Calculate fade effect for last 1 second
-            double opacity = 1.0;
-            if (levelMessageTimer > levelMessageDuration - 1.0) {
-                opacity = (levelMessageDuration - levelMessageTimer);
-            }
+    private void renderStarshipExplosion(GraphicsContext gc) {
+        if (starshipExplosion != null) {
+            starshipExplosion.render(gc);
+        }
+    }
 
-            gc.setFill(Color.rgb(255, 0, 0, opacity));
-            gc.setFont(javafx.scene.text.Font.font("Arial", javafx.scene.text.FontWeight.BOLD, 48));
-            String levelText = "Level " + currentLevel;
+    private void renderUI(GraphicsContext gc) {
+        renderLevelMessage(gc);
+        renderDebugMessage(gc);
+        renderScore(gc);
+        renderStatus(gc);
+    }
 
-            // Position at bottom left corner
-            double textX = 50;
-            double textY = Game.gameHeight - 50;
-            gc.fillText(levelText, textX, textY);
+    private void renderLevelMessage(GraphicsContext gc) {
+        if (!showLevelMessage) {
+            return;
         }
 
-        // Render debug message if active (center of screen)
-        if (showDebugMessage) {
-            // Calculate fade effect for first and last 0.5 seconds
-            double opacity = 1.0;
-            if (debugMessageTimer < 0.5) {
-                // Fade in
-                opacity = debugMessageTimer / 0.5;
-            } else if (debugMessageTimer > debugMessageDuration - 0.5) {
-                // Fade out
-                opacity = (debugMessageDuration - debugMessageTimer) / 0.5;
-            }
-
-            gc.setFill(Color.rgb(0, 255, 0, opacity));
-            gc.setFont(javafx.scene.text.Font.font("Arial", javafx.scene.text.FontWeight.BOLD, 36));
-
-            // Get text dimensions to center it
-            javafx.scene.text.Text text = new javafx.scene.text.Text(debugMessageText);
-            text.setFont(javafx.scene.text.Font.font("Arial", javafx.scene.text.FontWeight.BOLD, 36));
-            double textWidth = text.getLayoutBounds().getWidth();
-
-            // Center on screen
-            double centerX = (Game.gameWidth - textWidth) / 2;
-            double centerY = Game.gameHeight / 2;
-            gc.fillText(debugMessageText, centerX, centerY);
+        // Calculate fade effect for last 1 second
+        double opacity = 1.0;
+        if (levelMessageTimer > LEVEL_MESSAGE_DURATION - 1.0) {
+            opacity = (LEVEL_MESSAGE_DURATION - levelMessageTimer);
         }
 
-        // Render debug info if debug mode is active (top right corner)
+        gc.setFill(Color.rgb(255, 0, 0, opacity));
+        gc.setFont(javafx.scene.text.Font.font("Arial", javafx.scene.text.FontWeight.BOLD, 48));
+        String levelText = "Level " + currentLevel;
+
+        // Position at bottom left corner
+        double textX = 50;
+        double textY = Game.gameHeight - 50;
+        gc.fillText(levelText, textX, textY);
+    }
+
+    private void renderDebugMessage(GraphicsContext gc) {
+        if (!showDebugMessage) {
+            return;
+        }
+
+        // Calculate fade effect for first and last 0.5 seconds
+        double opacity = 1.0;
+        if (debugMessageTimer < 0.5) {
+            opacity = debugMessageTimer / 0.5;
+        } else if (debugMessageTimer > DEBUG_MESSAGE_DURATION - 0.5) {
+            opacity = (DEBUG_MESSAGE_DURATION - debugMessageTimer) / 0.5;
+        }
+
+        gc.setFill(Color.rgb(0, 255, 0, opacity));
+        gc.setFont(javafx.scene.text.Font.font("Arial", javafx.scene.text.FontWeight.BOLD, 36));
+
+        javafx.scene.text.Font messageFont = javafx.scene.text.Font.font("Arial", javafx.scene.text.FontWeight.BOLD, 36);
+        double centerX = TextUtils.centerTextX(debugMessageText, messageFont, Game.gameWidth);
+        double centerY = Game.gameHeight / 2;
+        gc.fillText(debugMessageText, centerX, centerY);
+    }
+
+    private void renderScore(GraphicsContext gc) {
+        // Render debug info if debug mode is active (top left corner)
         if (GameSettings.getInstance().isDebugMode()) {
-            gc.setFill(Color.rgb(0, 255, 255)); // Cyan
+            gc.setFill(Color.rgb(0, 255, 255));
             gc.setFont(javafx.scene.text.Font.font("Arial", javafx.scene.text.FontWeight.NORMAL, 24));
 
             String modeText = "Mode: " + spaceship.navigationMode.name();
             String speedText = String.format("Speed: %.1f", spaceship.speed);
 
-            // Position at top left corner (moved from top right)
             double textX = 50;
             double textY = 30;
             gc.fillText(modeText, textX, textY);
@@ -775,61 +835,25 @@ public class PlayState extends GameState {
         }
 
         // Render score at top right corner with color morphing
-        // Color cycle: red -> magenta -> blue -> cyan -> green -> yellow -> red (10 seconds total)
-        double colorProgress = (scoreColorTimer / 10.0) * 6.0; // 0 to 6 for 6 color transitions
-        int colorPhase = (int) colorProgress;
-        double phaseProgress = colorProgress - colorPhase;
-
-        // Clamp colorPhase to 0-5 to avoid jumping to default case
-        if (colorPhase >= 6) {
-            colorPhase = 5;
-            phaseProgress = 1.0; // Complete the last transition
-        }
-
-        Color scoreColor;
-        switch (colorPhase) {
-            case 0: // Red to Magenta (255,0,0) -> (255,0,255)
-                scoreColor = Color.rgb(255, 0, (int)(255 * phaseProgress));
-                break;
-            case 1: // Magenta to Blue (255,0,255) -> (0,0,255)
-                scoreColor = Color.rgb((int)(255 * (1 - phaseProgress)), 0, 255);
-                break;
-            case 2: // Blue to Cyan (0,0,255) -> (0,255,255)
-                scoreColor = Color.rgb(0, (int)(255 * phaseProgress), 255);
-                break;
-            case 3: // Cyan to Green (0,255,255) -> (0,255,0)
-                scoreColor = Color.rgb(0, 255, (int)(255 * (1 - phaseProgress)));
-                break;
-            case 4: // Green to Yellow (0,255,0) -> (255,255,0)
-                scoreColor = Color.rgb((int)(255 * phaseProgress), 255, 0);
-                break;
-            case 5: // Yellow to Red (255,255,0) -> (255,0,0)
-                scoreColor = Color.rgb(255, (int)(255 * (1 - phaseProgress)), 0);
-                break;
-            default:
-                scoreColor = Color.rgb(255, 0, 0); // Red as fallback
-                break;
-        }
-
+        Color scoreColor = ColorMorphing.getRainbowColor(scoreColorTimer, SCORE_COLOR_CYCLE_DURATION);
         gc.setFill(scoreColor);
-        gc.setFont(javafx.scene.text.Font.font("Arial", javafx.scene.text.FontWeight.NORMAL, 48)); // 2x size (was 24)
+        gc.setFont(javafx.scene.text.Font.font("Arial", javafx.scene.text.FontWeight.NORMAL, 48));
         String scoreText = "Score: " + score;
-        double scoreTextX = Game.gameWidth - 250; // Adjusted for larger text
-        double scoreTextY = 80; // Lower position (was 30)
+        double scoreTextX = Game.gameWidth - 250;
+        double scoreTextY = 80;
         gc.fillText(scoreText, scoreTextX, scoreTextY);
+    }
 
-        // Render shield/lives/mode display (lower-right corner)
+    private void renderStatus(GraphicsContext gc) {
         String statusText;
         double statusValue;
         double maxValue;
 
         if (gameMode == GameMode.LIVES) {
-            // Lives mode (unlimited lives with hearts)
             statusText = String.format("Remaining %d %s", remainingLives, remainingLives == 1 ? "life" : "lives");
             statusValue = remainingLives;
-            maxValue = Math.max(5, remainingLives); // Dynamic max based on current lives
+            maxValue = Math.max(5, remainingLives);
         } else {
-            // Shield mode
             statusText = String.format("Shield %d%%", (int) spaceship.shieldPercentage);
             statusValue = spaceship.shieldPercentage;
             maxValue = 100;
@@ -837,44 +861,12 @@ public class PlayState extends GameState {
 
         gc.setFont(javafx.scene.text.Font.font("Arial", javafx.scene.text.FontWeight.BOLD, 32));
 
-        // Calculate color based on percentage (green -> yellow -> orange -> red)
-        Color statusColor;
         double percentage = (statusValue / maxValue) * 100.0;
-
-        if (percentage >= 75) {
-            // 100% to 75%: Green to Yellow-Green
-            double t = (100 - percentage) / 25.0; // 0 to 1
-            int red = (int) (0 + t * 200);
-            int green = 255;
-            statusColor = Color.rgb(red, green, 0);
-        } else if (percentage >= 50) {
-            // 75% to 50%: Yellow to Orange
-            double t = (75 - percentage) / 25.0; // 0 to 1
-            int red = (int) (200 + t * 55);
-            int green = (int) (255 - t * 100);
-            statusColor = Color.rgb(red, green, 0);
-        } else if (percentage >= 25) {
-            // 50% to 25%: Orange to Red-Orange
-            double t = (50 - percentage) / 25.0; // 0 to 1
-            int red = 255;
-            int green = (int) (155 - t * 105);
-            statusColor = Color.rgb(red, green, 0);
-        } else {
-            // 25% to 0%: Red-Orange to Pure Red
-            double t = (25 - percentage) / 25.0; // 0 to 1
-            int red = 255;
-            int green = (int) (50 - t * 50);
-            statusColor = Color.rgb(red, green, 0);
-        }
-
+        Color statusColor = ColorMorphing.getHealthColor(percentage);
         gc.setFill(statusColor);
 
-        // Get text dimensions for positioning
-        javafx.scene.text.Text text = new javafx.scene.text.Text(statusText);
-        text.setFont(javafx.scene.text.Font.font("Arial", javafx.scene.text.FontWeight.BOLD, 32));
-        double textWidth = text.getLayoutBounds().getWidth();
-
-        // Position at lower-right corner with margin
+        javafx.scene.text.Font statusFont = javafx.scene.text.Font.font("Arial", javafx.scene.text.FontWeight.BOLD, 32);
+        double textWidth = TextUtils.measureTextWidth(statusText, statusFont);
         double statusTextX = Game.gameWidth - textWidth - 50;
         double statusTextY = Game.gameHeight - 30;
         gc.fillText(statusText, statusTextX, statusTextY);
@@ -1075,7 +1067,6 @@ public class PlayState extends GameState {
         double rotationSpeed = 2.0; // radians per second (not scaled)
         double size;
         double smokeTimer = 0.0;
-        double smokeInterval = 0.05; // Emit smoke every 0.05 seconds (doubled rate)
         Image sprite;
         double animationTimer = 0.0;
         int currentFrame = 0;
@@ -1093,7 +1084,6 @@ public class PlayState extends GameState {
         // Wormhole effect
         boolean inWormhole = false;
         double wormholeTimer = 0.0;
-        double wormholeDuration = 0.5; // 0.5 seconds for shrink, 0.5 for expand
         boolean wormholeShrinking = true;
         double normalSize;
         double wormholeTargetX;
@@ -1116,7 +1106,7 @@ public class PlayState extends GameState {
             this.sprite = StarshipSpriteLoader.createStarshipSprite();
 
             // Scale physics values based on resolution
-            double scale = Math.sqrt(scaleX * scaleY); // Use geometric mean for speed scaling
+            double scale = getResolutionScale(); // Use geometric mean for speed scaling
             this.minSpeed = BASE_MIN_SPEED * scale;
             this.maxSpeed = BASE_MAX_SPEED * scale;
             this.speed = this.maxSpeed * 0.6; // Start at 60% of max speed
@@ -1129,290 +1119,340 @@ public class PlayState extends GameState {
         void update(double deltaTime, double targetX, double targetY, boolean mousePressed,
                     boolean keyUp, boolean keyDown, boolean keyLeft, boolean keyRight) {
             // Handle wormhole effect
-            if (inWormhole) {
-                wormholeTimer += deltaTime;
-
-                if (wormholeShrinking) {
-                    // Shrinking phase (0 to 0.5 seconds)
-                    double progress = wormholeTimer / wormholeDuration;
-                    size = normalSize * (1.0 - progress);
-
-                    // Move spaceship toward the source black hole center
-                    x = wormholeStartX + (wormholeSourceX - wormholeStartX) * progress;
-                    y = wormholeStartY + (wormholeSourceY - wormholeStartY) * progress;
-
-                    if (wormholeTimer >= wormholeDuration) {
-                        // Switch to expanding phase at target location
-                        wormholeShrinking = false;
-                        wormholeTimer = 0.0;
-                        x = wormholeTargetX;
-                        y = wormholeTargetY;
-                        size = 0.0;
-                    }
-                } else {
-                    // Expanding phase (0 to 0.5 seconds)
-                    double progress = wormholeTimer / wormholeDuration;
-                    size = normalSize * progress;
-
-                    if (wormholeTimer >= wormholeDuration) {
-                        // Wormhole complete
-                        inWormhole = false;
-                        size = normalSize;
-                        // Set immunity to the black hole we just exited from
-                        wormholeImmune = true;
-                        immuneBlackHoleX = x;
-                        immuneBlackHoleY = y;
-                        // Enter cruise mode - continue in current direction without tracking
-                        navigationMode = NavigationMode.BALLISTIC;
-                    }
-                }
-
-                // Don't process normal movement during wormhole
-                return;
+            if (updateWormholeEffect(deltaTime)) {
+                return; // Don't process normal movement during wormhole
             }
 
-            // Check if we're far enough from immune black hole to clear immunity
-            if (wormholeImmune) {
-                double dx = x - immuneBlackHoleX;
-                double dy = y - immuneBlackHoleY;
-                double dist = Math.sqrt(dx * dx + dy * dy);
-                double blackHoleRadius = 60.0 * Math.sqrt(scaleX * scaleY); // Scale radius
-
-                if (dist > blackHoleRadius) {
-                    // Far enough away, clear immunity
-                    wormholeImmune = false;
-                }
-            }
+            updateWormholeImmunity();
 
             // Keyboard controls take precedence over mouse controls
             boolean usingKeyboard = keyUp || keyDown || keyLeft || keyRight;
 
             if (usingKeyboard) {
-                // Switch to ballistic mode (keyboard direct control)
-                navigationMode = NavigationMode.BALLISTIC;
-
-                // Reset target to current position to prevent unwanted mouse tracking
+                handleKeyboardControl(deltaTime, keyLeft, keyRight, keyUp, keyDown);
                 targetX = x;
                 targetY = y;
-                lastTargetX = x;
-                lastTargetY = y;
-
-                // Keyboard rotation
-                if (keyLeft) {
-                    angle -= rotationSpeed * deltaTime;
-                }
-                if (keyRight) {
-                    angle += rotationSpeed * deltaTime;
-                }
-
-                // Keyboard acceleration/deceleration
-                if (keyUp) {
-                    speed += accelerationRate * deltaTime;
-                } else if (keyDown) {
-                    speed -= decelerationRate * deltaTime;
-                }
             } else {
-                // Mouse control
-                // Only switch to tracking if mouse is actively pressed (not just moved)
-                if (mousePressed) {
-                    navigationMode = NavigationMode.TRACKING; // Switch to tracking mode
-                }
-
-                // Update last target for tracking changes
-                lastTargetX = targetX;
-                lastTargetY = targetY;
-
-                // Calculate distance to target
-                double dx = targetX - x;
-                double dy = targetY - y;
-                double distanceToTarget = Math.sqrt(dx * dx + dy * dy);
-                double targetAngle = Math.atan2(dy, dx);
-
-                // Calculate angle difference
-                double angleDiff = targetAngle - angle;
-                // Normalize to -PI to PI
-                while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-                while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-
-                // Calculate alignment (-1 = opposite direction, 0 = perpendicular, 1 = aligned)
-                double alignment = Math.cos(angleDiff);
-
-                // Check if target is reached (within reasonable distance)
-                double reachedThreshold = 30.0 * Math.sqrt(scaleX * scaleY); // Scale threshold
-                boolean targetReached = distanceToTarget < reachedThreshold;
-
-                // Switch to ballistic mode if target is reached
-                if (targetReached && navigationMode == NavigationMode.TRACKING) {
-                    navigationMode = NavigationMode.BALLISTIC;
-                } else if (targetReached && navigationMode == NavigationMode.BOUNDARY_AVOIDANCE) {
-                    navigationMode = NavigationMode.BALLISTIC;
-                }
-
-                // Determine which angle to rotate toward
-                double desiredAngle;
-                if (navigationMode == NavigationMode.BALLISTIC) {
-                    // Maintain current angle in ballistic mode
-                    desiredAngle = angle;
-                } else {
-                    // Track target in all other modes (TRACKING, BOUNDARY_AVOIDANCE)
-                    desiredAngle = targetAngle;
-                }
-
-                // Rotate toward desired angle
-                if (desiredAngle != angle) {
-                    double rotationDiff = desiredAngle - angle;
-                    // Normalize to -PI to PI
-                    while (rotationDiff > Math.PI) rotationDiff -= 2 * Math.PI;
-                    while (rotationDiff < -Math.PI) rotationDiff += 2 * Math.PI;
-
-                    double maxRotation = rotationSpeed * deltaTime;
-
-                    // If within 30 degrees (PI/6 radians), scale rotation linearly
-                    double thirtyDegrees = Math.PI / 6.0;
-                    if (Math.abs(rotationDiff) < thirtyDegrees) {
-                        // Scale rotation based on angle difference
-                        double rotationScale = Math.abs(rotationDiff) / thirtyDegrees;
-                        maxRotation *= rotationScale;
-                    }
-
-                    if (Math.abs(rotationDiff) < maxRotation) {
-                        angle = desiredAngle;
-                    } else {
-                        angle += Math.signum(rotationDiff) * maxRotation;
-                    }
-                }
-
-                // Adjust speed based on mouse press and alignment
-                if (mousePressed) {
-                    if (alignment > 0) {
-                        // Pointing toward target - accelerate
-                        speed += accelerationRate * deltaTime * alignment;
-                    }
-                    // If alignment <= 0 (pointing away), don't change speed
-                }
+                handleMouseControl(deltaTime, targetX, targetY, mousePressed);
             }
 
-            // Boundary avoidance - applies to ALL navigation modes (keyboard and mouse)
-            if (navigationMode != NavigationMode.BOUNDARY_AVOIDANCE) {
-                // Calculate velocity
-                double vx = Math.cos(angle) * speed;
-                double vy = Math.sin(angle) * speed;
-
-                // Base values at reference resolution, then scale
-                double baseMargin = 100.0 * Math.sqrt(scaleX * scaleY);
-                double speedFactor = speed / maxSpeed; // 0 to 1
-                double margin = baseMargin + (speedFactor * 100.0 * Math.sqrt(scaleX * scaleY)); // Scale the variable part too
-
-                double distToLeftEdge = x;
-                double distToRightEdge = Game.gameWidth - x;
-                double distToTopEdge = y;
-                double distToBottomEdge = Game.gameHeight - y;
-
-                boolean nearBoundary = false;
-
-                // Check each edge with angle consideration
-                if (distToLeftEdge < margin && vx < 0) {
-                    double angleFactor = Math.abs(Math.cos(angle));
-                    double effectiveMargin = margin * angleFactor;
-                    if (distToLeftEdge < effectiveMargin) {
-                        nearBoundary = true;
-                    }
-                } else if (distToRightEdge < margin && vx > 0) {
-                    double angleFactor = Math.abs(Math.cos(angle));
-                    double effectiveMargin = margin * angleFactor;
-                    if (distToRightEdge < effectiveMargin) {
-                        nearBoundary = true;
-                    }
-                }
-
-                if (distToTopEdge < margin && vy < 0) {
-                    double angleFactor = Math.abs(Math.sin(angle));
-                    double effectiveMargin = margin * angleFactor;
-                    if (distToTopEdge < effectiveMargin) {
-                        nearBoundary = true;
-                    }
-                } else if (distToBottomEdge < margin && vy > 0) {
-                    double angleFactor = Math.abs(Math.sin(angle));
-                    double effectiveMargin = margin * angleFactor;
-                    if (distToBottomEdge < effectiveMargin) {
-                        nearBoundary = true;
-                    }
-                }
-
-                // If near boundary, pick a random target at least screen-height away
-                if (nearBoundary) {
-                    double minDistance = Game.gameHeight;
-                    double newX, newY;
-                    int attempts = 0;
-                    double targetMargin = 100 * Math.sqrt(scaleX * scaleY); // Scale margin for random target
-
-                    do {
-                        // Pick random point within screen bounds with scaled margin
-                        newX = targetMargin + Math.random() * (Game.gameWidth - 2 * targetMargin);
-                        newY = targetMargin + Math.random() * (Game.gameHeight - 2 * targetMargin);
-                        double distance = Math.sqrt((newX - x) * (newX - x) + (newY - y) * (newY - y));
-
-                        if (distance >= minDistance) {
-                            break;
-                        }
-                        attempts++;
-                    } while (attempts < 100);
-
-                    // Signal target change to PlayState
-                    this.targetChanged = true;
-                    this.newTargetX = newX;
-                    this.newTargetY = newY;
-
-                    // Update local tracking
-                    targetX = newX;
-                    targetY = newY;
-                    lastTargetX = newX;
-                    lastTargetY = newY;
-                    navigationMode = NavigationMode.BOUNDARY_AVOIDANCE;
-                }
-            }
-
-            // Auto-steer during boundary avoidance (works for both keyboard and mouse modes)
-            if (navigationMode == NavigationMode.BOUNDARY_AVOIDANCE) {
-                // Calculate target angle
-                double dx = targetX - x;
-                double dy = targetY - y;
-                double distanceToTarget = Math.sqrt(dx * dx + dy * dy);
-                double targetAngle = Math.atan2(dy, dx);
-
-                // Rotate toward target
-                double rotationDiff = targetAngle - angle;
-                // Normalize to -PI to PI
-                while (rotationDiff > Math.PI) rotationDiff -= 2 * Math.PI;
-                while (rotationDiff < -Math.PI) rotationDiff += 2 * Math.PI;
-
-                double maxRotation = rotationSpeed * deltaTime;
-
-                // If within 30 degrees (PI/6 radians), scale rotation linearly
-                double thirtyDegrees = Math.PI / 6.0;
-                if (Math.abs(rotationDiff) < thirtyDegrees) {
-                    // Scale rotation based on angle difference
-                    double rotationScale = Math.abs(rotationDiff) / thirtyDegrees;
-                    maxRotation *= rotationScale;
-                }
-
-                if (Math.abs(rotationDiff) < maxRotation) {
-                    angle = targetAngle;
-                } else {
-                    angle += Math.signum(rotationDiff) * maxRotation;
-                }
-
-                // Check if we reached the safe target
-                double reachedThreshold = 30.0 * Math.sqrt(scaleX * scaleY);
-                if (distanceToTarget < reachedThreshold) {
-                    // Switch back to ballistic mode
-                    navigationMode = NavigationMode.BALLISTIC;
-                }
-            }
+            checkBoundaryAvoidance(targetX, targetY);
+            handleBoundaryAvoidanceNavigation(deltaTime, targetX, targetY);
 
             // Clamp speed to min/max
             speed = Math.max(minSpeed, Math.min(maxSpeed, speed));
 
+            updateMovementAndBoundaries(deltaTime);
+            updateEffects(deltaTime);
+        }
+
+        void emitSmoke() {
+            // Emit smoke from the back of the spaceship
+            double backX = x - Math.cos(angle) * size * 0.3;
+            double backY = y - Math.sin(angle) * size * 0.3;
+            smokeClouds.add(new SmokeCloud(backX, backY, gameTime));
+        }
+
+        void enterWormhole(double sourceX, double sourceY, double targetX, double targetY) {
+            inWormhole = true;
+            wormholeTimer = 0.0;
+            wormholeShrinking = true;
+            wormholeSourceX = sourceX;
+            wormholeSourceY = sourceY;
+            wormholeTargetX = targetX;
+            wormholeTargetY = targetY;
+            wormholeStartX = x;
+            wormholeStartY = y;
+        }
+
+        void render(GraphicsContext gc) {
+            gc.save();
+            gc.translate(x, y);
+            gc.rotate(Math.toDegrees(angle));
+
+            // Get current animation frame
+            Image currentFrameImage = StarshipSpriteLoader.getStarshipFrame(currentFrame);
+
+            // Calculate scale: resolution scale * wormhole effect scale
+            double resolutionScale = getResolutionScale();
+            double wormholeScale = size / normalSize;
+            double totalScale = resolutionScale * wormholeScale;
+
+            // Draw sprite centered with scaling
+            double spriteWidth = currentFrameImage.getWidth() * totalScale;
+            double spriteHeight = currentFrameImage.getHeight() * totalScale;
+            gc.drawImage(currentFrameImage, -spriteWidth / 2, -spriteHeight / 2, spriteWidth, spriteHeight);
+
+            gc.restore();
+        }
+
+        private boolean updateWormholeEffect(double deltaTime) {
+            if (!inWormhole) {
+                return false;
+            }
+
+            wormholeTimer += deltaTime;
+
+            if (wormholeShrinking) {
+                // Shrinking phase (0 to 0.5 seconds)
+                double progress = wormholeTimer / WORMHOLE_DURATION;
+                size = normalSize * (1.0 - progress);
+
+                // Move spaceship toward the source black hole center
+                x = wormholeStartX + (wormholeSourceX - wormholeStartX) * progress;
+                y = wormholeStartY + (wormholeSourceY - wormholeStartY) * progress;
+
+                if (wormholeTimer >= WORMHOLE_DURATION) {
+                    // Switch to expanding phase at target location
+                    wormholeShrinking = false;
+                    wormholeTimer = 0.0;
+                    x = wormholeTargetX;
+                    y = wormholeTargetY;
+                    size = 0.0;
+                }
+            } else {
+                // Expanding phase (0 to 0.5 seconds)
+                double progress = wormholeTimer / WORMHOLE_DURATION;
+                size = normalSize * progress;
+
+                if (wormholeTimer >= WORMHOLE_DURATION) {
+                    // Wormhole complete
+                    inWormhole = false;
+                    size = normalSize;
+                    // Set immunity to the black hole we just exited from
+                    wormholeImmune = true;
+                    immuneBlackHoleX = x;
+                    immuneBlackHoleY = y;
+                    // Enter cruise mode - continue in current direction without tracking
+                    navigationMode = NavigationMode.BALLISTIC;
+                }
+            }
+
+            return true; // In wormhole, skip normal movement
+        }
+
+        private void updateWormholeImmunity() {
+            if (!wormholeImmune) {
+                return;
+            }
+
+            double dx = x - immuneBlackHoleX;
+            double dy = y - immuneBlackHoleY;
+            double dist = Math.sqrt(dx * dx + dy * dy);
+            double blackHoleRadius = 60.0 * getResolutionScale(); // Scale radius
+
+            if (dist > blackHoleRadius) {
+                // Far enough away, clear immunity
+                wormholeImmune = false;
+            }
+        }
+
+        private void handleKeyboardControl(double deltaTime, boolean keyLeft, boolean keyRight, boolean keyUp, boolean keyDown) {
+            // Switch to ballistic mode (keyboard direct control)
+            navigationMode = NavigationMode.BALLISTIC;
+
+            // Reset target to current position to prevent unwanted mouse tracking
+            lastTargetX = x;
+            lastTargetY = y;
+
+            // Keyboard rotation
+            if (keyLeft) {
+                angle -= rotationSpeed * deltaTime;
+            }
+            if (keyRight) {
+                angle += rotationSpeed * deltaTime;
+            }
+
+            // Keyboard acceleration/deceleration
+            if (keyUp) {
+                speed += accelerationRate * deltaTime;
+            } else if (keyDown) {
+                speed -= decelerationRate * deltaTime;
+            }
+        }
+
+        private void handleMouseControl(double deltaTime, double targetX, double targetY, boolean mousePressed) {
+            // Only switch to tracking if mouse is actively pressed (not just moved)
+            if (mousePressed) {
+                navigationMode = NavigationMode.TRACKING; // Switch to tracking mode
+            }
+
+            // Update last target for tracking changes
+            lastTargetX = targetX;
+            lastTargetY = targetY;
+
+            // Calculate distance to target
+            double dx = targetX - x;
+            double dy = targetY - y;
+            double distanceToTarget = Math.sqrt(dx * dx + dy * dy);
+            double targetAngle = Math.atan2(dy, dx);
+
+            // Calculate angle difference
+            double angleDiff = MathUtils.angleDifference(targetAngle, angle);
+
+            // Calculate alignment (-1 = opposite direction, 0 = perpendicular, 1 = aligned)
+            double alignment = Math.cos(angleDiff);
+
+            // Check if target is reached (within reasonable distance)
+            double reachedThreshold = REACHED_THRESHOLD * getResolutionScale(); // Scale threshold
+            boolean targetReached = distanceToTarget < reachedThreshold;
+
+            // Switch to ballistic mode if target is reached
+            if (targetReached && navigationMode == NavigationMode.TRACKING) {
+                navigationMode = NavigationMode.BALLISTIC;
+            } else if (targetReached && navigationMode == NavigationMode.BOUNDARY_AVOIDANCE) {
+                navigationMode = NavigationMode.BALLISTIC;
+            }
+
+            // Determine which angle to rotate toward
+            double desiredAngle;
+            if (navigationMode == NavigationMode.BALLISTIC) {
+                // Maintain current angle in ballistic mode
+                desiredAngle = angle;
+            } else {
+                // Track target in all other modes (TRACKING, BOUNDARY_AVOIDANCE)
+                desiredAngle = targetAngle;
+            }
+
+            // Rotate toward desired angle
+            if (desiredAngle != angle) {
+                rotateTowardAngle(desiredAngle, deltaTime);
+            }
+
+            // Adjust speed based on mouse press and alignment
+            if (mousePressed) {
+                if (alignment > 0) {
+                    // Pointing toward target - accelerate
+                    speed += accelerationRate * deltaTime * alignment;
+                }
+                // If alignment <= 0 (pointing away), don't change speed
+            }
+        }
+
+        private void rotateTowardAngle(double targetAngle, double deltaTime) {
+            double rotationDiff = MathUtils.angleDifference(targetAngle, angle);
+
+            double maxRotation = rotationSpeed * deltaTime;
+
+            // If within 30 degrees (PI/6 radians), scale rotation linearly
+            double thirtyDegrees = Math.PI / 6.0;
+            if (Math.abs(rotationDiff) < thirtyDegrees) {
+                // Scale rotation based on angle difference
+                double rotationScale = Math.abs(rotationDiff) / thirtyDegrees;
+                maxRotation *= rotationScale;
+            }
+
+            if (Math.abs(rotationDiff) < maxRotation) {
+                angle = targetAngle;
+            } else {
+                angle += Math.signum(rotationDiff) * maxRotation;
+            }
+        }
+
+        private void checkBoundaryAvoidance(double targetX, double targetY) {
+            if (navigationMode == NavigationMode.BOUNDARY_AVOIDANCE) {
+                return; // Already in avoidance mode
+            }
+
+            // Calculate velocity
+            double vx = Math.cos(angle) * speed;
+            double vy = Math.sin(angle) * speed;
+
+            // Base values at reference resolution, then scale
+            double baseMargin = BOUNDARY_MARGIN_BASE * getResolutionScale();
+            double speedFactor = speed / maxSpeed; // 0 to 1
+            double margin = baseMargin + (speedFactor * BOUNDARY_MARGIN_SPEED * getResolutionScale()); // Scale the variable part too
+
+            double distToLeftEdge = x;
+            double distToRightEdge = Game.gameWidth - x;
+            double distToTopEdge = y;
+            double distToBottomEdge = Game.gameHeight - y;
+
+            boolean nearBoundary = false;
+
+            // Check each edge with angle consideration
+            if (distToLeftEdge < margin && vx < 0) {
+                double angleFactor = Math.abs(Math.cos(angle));
+                double effectiveMargin = margin * angleFactor;
+                if (distToLeftEdge < effectiveMargin) {
+                    nearBoundary = true;
+                }
+            } else if (distToRightEdge < margin && vx > 0) {
+                double angleFactor = Math.abs(Math.cos(angle));
+                double effectiveMargin = margin * angleFactor;
+                if (distToRightEdge < effectiveMargin) {
+                    nearBoundary = true;
+                }
+            }
+
+            if (distToTopEdge < margin && vy < 0) {
+                double angleFactor = Math.abs(Math.sin(angle));
+                double effectiveMargin = margin * angleFactor;
+                if (distToTopEdge < effectiveMargin) {
+                    nearBoundary = true;
+                }
+            } else if (distToBottomEdge < margin && vy > 0) {
+                double angleFactor = Math.abs(Math.sin(angle));
+                double effectiveMargin = margin * angleFactor;
+                if (distToBottomEdge < effectiveMargin) {
+                    nearBoundary = true;
+                }
+            }
+
+            // If near boundary, pick a random target at least screen-height away
+            if (nearBoundary) {
+                double minDistance = Game.gameHeight;
+                double newX, newY;
+                int attempts = 0;
+                double targetMargin = BOUNDARY_MARGIN_BASE * getResolutionScale(); // Scale margin for random target
+
+                do {
+                    // Pick random point within screen bounds with scaled margin
+                    newX = targetMargin + Math.random() * (Game.gameWidth - 2 * targetMargin);
+                    newY = targetMargin + Math.random() * (Game.gameHeight - 2 * targetMargin);
+                    double distance = Math.sqrt((newX - x) * (newX - x) + (newY - y) * (newY - y));
+
+                    if (distance >= minDistance) {
+                        break;
+                    }
+                    attempts++;
+                } while (attempts < 100);
+
+                // Signal target change to PlayState
+                this.targetChanged = true;
+                this.newTargetX = newX;
+                this.newTargetY = newY;
+
+                // Update local tracking
+                lastTargetX = newX;
+                lastTargetY = newY;
+                navigationMode = NavigationMode.BOUNDARY_AVOIDANCE;
+            }
+        }
+
+        private void handleBoundaryAvoidanceNavigation(double deltaTime, double targetX, double targetY) {
+            if (navigationMode != NavigationMode.BOUNDARY_AVOIDANCE) {
+                return; // Not in avoidance mode
+            }
+
+            // Calculate target angle
+            double dx = targetX - x;
+            double dy = targetY - y;
+            double distanceToTarget = Math.sqrt(dx * dx + dy * dy);
+            double targetAngle = Math.atan2(dy, dx);
+
+            // Rotate toward target
+            rotateTowardAngle(targetAngle, deltaTime);
+
+            // Check if we reached the safe target
+            double reachedThreshold = 30.0 * Math.sqrt(scaleX * scaleY);
+            if (distanceToTarget < reachedThreshold) {
+                // Switch back to ballistic mode
+                navigationMode = NavigationMode.BALLISTIC;
+            }
+        }
+
+        private void updateMovementAndBoundaries(double deltaTime) {
             // Move in the direction of the nose
             double vx = Math.cos(angle) * speed * deltaTime;
             double vy = Math.sin(angle) * speed * deltaTime;
@@ -1451,66 +1491,27 @@ public class PlayState extends GameState {
 
             // Normalize angle and reduce speed on boundary hit
             if (hitBoundary) {
-                while (angle > Math.PI) angle -= 2 * Math.PI;
-                while (angle < -Math.PI) angle += 2 * Math.PI;
+                angle = MathUtils.normalizeAngle(angle);
 
                 // Reduce speed by 20% when hitting boundary, but not below minimum
-                speed = Math.max(minSpeed, speed * 0.8);
+                speed = Math.max(minSpeed, speed * BOUNDARY_SPEED_REDUCTION);
             }
+        }
 
+        private void updateEffects(double deltaTime) {
             // Emit smoke clouds
             smokeTimer += deltaTime;
-            if (smokeTimer >= smokeInterval) {
-                smokeTimer -= smokeInterval;
+            if (smokeTimer >= SMOKE_INTERVAL) {
+                smokeTimer -= SMOKE_INTERVAL;
                 emitSmoke();
             }
 
             // Animate sprite frames (cycle through light states)
             animationTimer += deltaTime;
-            if (animationTimer >= 0.25) { // Change frame every 0.25 seconds
-                animationTimer -= 0.25;
+            if (animationTimer >= SPRITE_ANIMATION_INTERVAL) {
+                animationTimer -= SPRITE_ANIMATION_INTERVAL;
                 currentFrame = (currentFrame + 1) % StarshipSpriteLoader.getFrameCount();
             }
-        }
-
-        void emitSmoke() {
-            // Emit smoke from the back of the spaceship
-            double backX = x - Math.cos(angle) * size * 0.3;
-            double backY = y - Math.sin(angle) * size * 0.3;
-            smokeClouds.add(new SmokeCloud(backX, backY, gameTime));
-        }
-
-        void enterWormhole(double sourceX, double sourceY, double targetX, double targetY) {
-            inWormhole = true;
-            wormholeTimer = 0.0;
-            wormholeShrinking = true;
-            wormholeSourceX = sourceX;
-            wormholeSourceY = sourceY;
-            wormholeTargetX = targetX;
-            wormholeTargetY = targetY;
-            wormholeStartX = x;
-            wormholeStartY = y;
-        }
-
-        void render(GraphicsContext gc) {
-            gc.save();
-            gc.translate(x, y);
-            gc.rotate(Math.toDegrees(angle));
-
-            // Get current animation frame
-            Image currentFrameImage = StarshipSpriteLoader.getStarshipFrame(currentFrame);
-
-            // Calculate scale: resolution scale * wormhole effect scale
-            double resolutionScale = Math.sqrt(scaleX * scaleY);
-            double wormholeScale = size / normalSize;
-            double totalScale = resolutionScale * wormholeScale;
-
-            // Draw sprite centered with scaling
-            double spriteWidth = currentFrameImage.getWidth() * totalScale;
-            double spriteHeight = currentFrameImage.getHeight() * totalScale;
-            gc.drawImage(currentFrameImage, -spriteWidth / 2, -spriteHeight / 2, spriteWidth, spriteHeight);
-
-            gc.restore();
         }
     }
 
@@ -1529,7 +1530,7 @@ public class PlayState extends GameState {
             this.maxLifetime = 0.4 + Math.sin(creationTime * 2.0 * Math.PI) * 0.2;
 
             // Scale smoke size based on resolution
-            double scale = Math.sqrt(scaleX * scaleY);
+            double scale = getResolutionScale();
             this.initialSize = 8.0 * scale;
             this.size = initialSize;
             this.opacity = 0.8; // Start with bright/dense
@@ -1605,7 +1606,7 @@ public class PlayState extends GameState {
             this.colorScheme = colorScheme;
 
             // Scale physics values based on resolution
-            double scale = Math.sqrt(scaleX * scaleY); // Use geometric mean for speed scaling
+            double scale = getResolutionScale(); // Use geometric mean for speed scaling
             this.minSpeed = BASE_MIN_SPEED * scale;
             this.maxSpeed = BASE_MAX_SPEED * scale;
             this.acceleration = BASE_ACCELERATION * scale;
@@ -1660,7 +1661,7 @@ public class PlayState extends GameState {
             double targetSpeed = speed;
 
             // PRIORITY 1: Boundary avoidance
-            double edgeMargin = 150.0 * Math.sqrt(scaleX * scaleY); // Scale edge margin
+            double edgeMargin = EDGE_MARGIN * getResolutionScale(); // Scale edge margin
             double distToEdgeX = Math.min(x, Game.gameWidth - x);
             double distToEdgeY = Math.min(y, Game.gameHeight - y);
             double minDistToEdge = Math.min(distToEdgeX, distToEdgeY);
@@ -1727,11 +1728,7 @@ public class PlayState extends GameState {
 
             // Apply angle change with 30 degrees per second limit
             double maxAngleChange = Math.toRadians(30.0) * deltaTime; // 30 degrees per second
-            double angleDiff = targetAngle - angle;
-
-            // Normalize angle difference to -PI to PI
-            while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-            while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+            double angleDiff = MathUtils.angleDifference(targetAngle, angle);
 
             // Clamp angle change to max rate
             if (Math.abs(angleDiff) <= maxAngleChange) {
@@ -1753,7 +1750,7 @@ public class PlayState extends GameState {
             y += vy * deltaTime;
 
             // Hard clamp to boundaries with margin
-            double clampMargin = 60 * Math.sqrt(scaleX * scaleY); // Scale clamp margin
+            double clampMargin = CLAMP_MARGIN * getResolutionScale(); // Scale clamp margin
             x = Math.max(clampMargin, Math.min(Game.gameWidth - clampMargin, x));
             y = Math.max(clampMargin, Math.min(Game.gameHeight - clampMargin, y));
         }
@@ -1767,7 +1764,7 @@ public class PlayState extends GameState {
             Image frame = BlackHoleSpriteLoader.getBlackHoleFrame(colorScheme, currentFrame);
             if (frame != null) {
                 // Scale sprite based on resolution and exit animation
-                double resolutionScale = Math.sqrt(scaleX * scaleY);
+                double resolutionScale = getResolutionScale();
                 double totalScale = resolutionScale * currentScale;
                 double width = frame.getWidth() * totalScale;
                 double height = frame.getHeight() * totalScale;
@@ -1819,7 +1816,7 @@ public class PlayState extends GameState {
             pickRandomBlindTarget();
 
             // Initialize random prediction time for skill 0x04
-            if ((enemyType & 0x04) != 0) {
+            if (hasPredictionSkill()) {
                 predictionTime = 0.1 + rng.nextDouble() * 1.4; // 0.1 to 1.5 seconds
             }
         }
@@ -1827,6 +1824,23 @@ public class PlayState extends GameState {
         void pickRandomBlindTarget() {
             blindTargetX = 100 + rng.nextDouble() * (Game.gameWidth - 200);
             blindTargetY = 100 + rng.nextDouble() * (Game.gameHeight - 200);
+        }
+
+        // Enemy skill checking methods
+        boolean hasWiggleSkill() {
+            return (enemyType & 0x01) != 0;
+        }
+
+        boolean hasSpeedOscillationSkill() {
+            return (enemyType & 0x02) != 0;
+        }
+
+        boolean hasPredictionSkill() {
+            return (enemyType & 0x04) != 0;
+        }
+
+        boolean hasZigZagSkill() {
+            return (enemyType & 0x08) != 0;
         }
 
         void update(double deltaTime, double spaceshipX, double spaceshipY) {
@@ -1867,7 +1881,7 @@ public class PlayState extends GameState {
             double baseTargetSpeed = spaceship.maxSpeed * 0.5;
 
             // Skill 0x02: Speed oscillates between 0.3 of max plane speed and 0.9 of plane's max speed
-            if ((enemyType & 0x02) != 0) {
+            if (hasSpeedOscillationSkill()) {
                 speedOscillationTimer += deltaTime;
                 // Oscillate with 4 second period (0 to 1 range)
                 double oscillation = (Math.sin(speedOscillationTimer * Math.PI * 0.5) + 1.0) / 2.0;
@@ -1887,7 +1901,7 @@ public class PlayState extends GameState {
                 speed += (spaceshipAccelRate * 0.5) * deltaTime;
 
                 // Clamp to target speed (don't exceed 0.5 of spaceship speed, unless skill 0x02)
-                if ((enemyType & 0x02) == 0 && speed > baseTargetSpeed) {
+                if (!hasSpeedOscillationSkill() && speed > baseTargetSpeed) {
                     speed = baseTargetSpeed;
                 }
             } else if (spaceshipDecelerating) {
@@ -1922,7 +1936,7 @@ public class PlayState extends GameState {
                 targetY = spaceshipY;
 
                 // Skill 0x04: Predict spaceship position (0.1 to 1.5 seconds ahead, including rolling state)
-                if ((enemyType & 0x04) != 0) {
+                if (hasPredictionSkill()) {
                     // Update prediction time every 10 seconds
                     predictionUpdateTimer += deltaTime;
                     if (predictionUpdateTimer >= predictionUpdateInterval) {
@@ -1960,7 +1974,7 @@ public class PlayState extends GameState {
 
             // Determine rotation speed based on skill 0x08
             double rotationSpeed;
-            if ((enemyType & 0x08) != 0) {
+            if (hasZigZagSkill()) {
                 // Skill 0x08: Rotate 3 times faster than the plane
                 rotationSpeed = spaceship.rotationSpeed * 3.0;
             } else {
@@ -1969,10 +1983,7 @@ public class PlayState extends GameState {
             }
 
             // Slowly turn toward target
-            double angleDiff = targetAngle - angle;
-            // Normalize to -PI to PI
-            while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-            while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+            double angleDiff = MathUtils.angleDifference(targetAngle, angle);
 
             // Apply rotation
             double maxRotation = rotationSpeed * deltaTime;
@@ -1987,7 +1998,7 @@ public class PlayState extends GameState {
 
             // Skill 0x01 != 0: Wiggle - add sinusoidal variation to direction (45 degrees)
             // Affects enemies: 1, 3, 5, 7, 9, 11, 13, 15
-            if ((enemyType & 0x01) != 0) {
+            if (hasWiggleSkill()) {
                 double wiggle = Math.toRadians(45) * Math.sin(gameTime * Math.PI);
                 moveAngle += wiggle;
             }
@@ -2009,7 +2020,7 @@ public class PlayState extends GameState {
                 Image frame = com.game.util.EnemySpriteLoader.getEnemyFrame(enemyType, currentFrame);
                 if (frame != null) {
                     // Scale sprite based on resolution
-                    double scale = Math.sqrt(scaleX * scaleY);
+                    double scale = getResolutionScale();
                     double width = frame.getWidth() * scale;
                     double height = frame.getHeight() * scale;
 
@@ -2059,7 +2070,7 @@ public class PlayState extends GameState {
             Image frame = ExplosionSpriteLoader.getExplosionFrame(currentFrame);
             if (frame != null) {
                 // Scale sprite based on resolution
-                double scale = Math.sqrt(scaleX * scaleY);
+                double scale = getResolutionScale();
                 double width = frame.getWidth() * scale;
                 double height = frame.getHeight() * scale;
 
@@ -2098,7 +2109,7 @@ public class PlayState extends GameState {
             Image frame = StarshipExplosionSpriteLoader.getExplosionFrame(currentFrame);
             if (frame != null) {
                 // Scale sprite based on resolution
-                double scale = Math.sqrt(scaleX * scaleY);
+                double scale = getResolutionScale();
                 double width = frame.getWidth() * scale;
                 double height = frame.getHeight() * scale;
 

@@ -1,18 +1,12 @@
 package com.game.util;
 
-import javafx.geometry.Rectangle2D;
 import javafx.scene.image.Image;
 import javafx.scene.image.WritableImage;
 
-import java.util.logging.Logger;
-
 public class StarshipSpriteLoader {
-    private static final Logger LOGGER = Logger.getLogger(StarshipSpriteLoader.class.getName());
-
     private static final int SPRITE_SIZE = 80;
     private static final int FRAMES = 4;
     private static final int COLS = 4;
-    private static Image spriteSheet = null;
     private static Image[] frames = null;
 
     public static Image createStarshipSprite() {
@@ -37,43 +31,16 @@ public class StarshipSpriteLoader {
     }
 
     private static void loadSpriteSheet() {
-        try {
-            String imagePath = "/images/starship_sheet.png";
-            spriteSheet = new Image(StarshipSpriteLoader.class.getResourceAsStream(imagePath));
-
-            if (spriteSheet.isError()) {
-                LOGGER.warning("Error loading sprite sheet from: " + imagePath);
-                frames = null;
-                return;
-            }
-
-            // Extract individual frames from sprite sheet
-            frames = new Image[FRAMES];
-            for (int i = 0; i < FRAMES; i++) {
-                int col = i % COLS;
-                int row = i / COLS;
-                int x = col * SPRITE_SIZE;
-                int y = row * SPRITE_SIZE;
-
-                // Extract frame
-                WritableImage frame = new WritableImage(
-                    spriteSheet.getPixelReader(),
-                    x, y,
-                    SPRITE_SIZE, SPRITE_SIZE
-                );
-                frames[i] = frame;
-            }
-
-            LOGGER.fine("Sprite sheet loaded successfully: " + FRAMES + " frames");
-
-        } catch (Exception e) {
-            LOGGER.warning("Exception loading sprite sheet: " + e.getMessage());
-            frames = null;
-        }
+        frames = SpriteSheetLoader.loadSpriteSheet(
+            "/images/starship_sheet.png",
+            FRAMES,
+            COLS,
+            SPRITE_SIZE,
+            StarshipSpriteLoader.class
+        );
     }
 
     private static Image createFallbackSprite() {
-        LOGGER.warning("Using fallback sprite generation");
         return createProgrammaticSprite();
     }
 
@@ -123,6 +90,7 @@ public class StarshipSpriteLoader {
                     try {
                         pw.setColor(x, y, color);
                     } catch (Exception e) {
+                        // Ignore out-of-bounds pixels
                     }
                 }
             }

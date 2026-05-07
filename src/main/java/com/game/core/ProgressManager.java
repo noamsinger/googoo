@@ -21,13 +21,11 @@ public class ProgressManager {
     private Map<String, LevelProgress> progressMap;
     private int lastLevelShield;
     private int lastLevelLives;
-    private int lastLevelLiveForever;
 
     private ProgressManager() {
         progressMap = new HashMap<>();
         lastLevelShield = 1;
         lastLevelLives = 1;
-        lastLevelLiveForever = 1;
         ensureConfigDirectoryExists();
         load();
     }
@@ -133,7 +131,6 @@ public class ProgressManager {
         // Save last levels
         props.setProperty("LAST_LEVEL_SHIELD", String.valueOf(lastLevelShield));
         props.setProperty("LAST_LEVEL_LIVES", String.valueOf(lastLevelLives));
-        props.setProperty("LAST_LEVEL_LIVE_FOREVER", String.valueOf(lastLevelLiveForever));
 
         // Save all level progress
         for (Map.Entry<String, LevelProgress> entry : progressMap.entrySet()) {
@@ -186,13 +183,6 @@ public class ProgressManager {
                 lastLevelLives = 1;
             }
 
-            try {
-                lastLevelLiveForever = Integer.parseInt(props.getProperty("LAST_LEVEL_LIVE_FOREVER", "1"));
-            } catch (NumberFormatException e) {
-                LOGGER.warning("Error parsing LAST_LEVEL_LIVE_FOREVER, using default: " + e.getMessage());
-                lastLevelLiveForever = 1;
-            }
-
             // Load all level progress
             for (String key : props.stringPropertyNames()) {
                 if (key.endsWith("_LIVES") && !key.startsWith("LAST_LEVEL")) {
@@ -225,7 +215,6 @@ public class ProgressManager {
         progressMap.clear();
         lastLevelShield = 1;
         lastLevelLives = 1;
-        lastLevelLiveForever = 1;
         save();
     }
 }

@@ -1,17 +1,12 @@
 package com.game.util;
 
 import javafx.scene.image.Image;
-import javafx.scene.image.WritableImage;
-
-import java.util.logging.Logger;
 
 public class ExplosionSpriteLoader {
-    private static final Logger LOGGER = Logger.getLogger(ExplosionSpriteLoader.class.getName());
     private static final int FRAME_COUNT = 32;
     private static final int FRAME_SIZE = 120;
     private static final int FRAMES_PER_ROW = 8;
 
-    private static Image spriteSheet = null;
     private static Image[] explosionFrames = null;
 
     public static void loadExplosionSprites() {
@@ -19,29 +14,13 @@ public class ExplosionSpriteLoader {
             return; // Already loaded
         }
 
-        try {
-            spriteSheet = new Image(ExplosionSpriteLoader.class.getResourceAsStream("/images/enemy_explosion_sheet.png"));
-            LOGGER.fine("Enemy explosion sprite sheet loaded successfully: " + FRAME_COUNT + " frames");
-
-            explosionFrames = new Image[FRAME_COUNT];
-
-            for (int i = 0; i < FRAME_COUNT; i++) {
-                int col = i % FRAMES_PER_ROW;
-                int row = i / FRAMES_PER_ROW;
-                int x = col * FRAME_SIZE;
-                int y = row * FRAME_SIZE;
-
-                WritableImage frameImage = new WritableImage(
-                    spriteSheet.getPixelReader(),
-                    x, y,
-                    FRAME_SIZE, FRAME_SIZE
-                );
-                explosionFrames[i] = frameImage;
-            }
-        } catch (Exception e) {
-            LOGGER.warning("Failed to load enemy explosion sprite sheet: " + e.getMessage());
-            e.printStackTrace();
-        }
+        explosionFrames = SpriteSheetLoader.loadSpriteSheet(
+            "/images/enemy_explosion_sheet.png",
+            FRAME_COUNT,
+            FRAMES_PER_ROW,
+            FRAME_SIZE,
+            ExplosionSpriteLoader.class
+        );
     }
 
     public static Image getExplosionFrame(int frame) {
