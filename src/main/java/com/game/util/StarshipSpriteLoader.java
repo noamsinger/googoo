@@ -4,7 +4,10 @@ import javafx.geometry.Rectangle2D;
 import javafx.scene.image.Image;
 import javafx.scene.image.WritableImage;
 
+import java.util.logging.Logger;
+
 public class StarshipSpriteLoader {
+    private static final Logger LOGGER = Logger.getLogger(StarshipSpriteLoader.class.getName());
 
     private static final int SPRITE_SIZE = 80;
     private static final int FRAMES = 4;
@@ -39,7 +42,7 @@ public class StarshipSpriteLoader {
             spriteSheet = new Image(StarshipSpriteLoader.class.getResourceAsStream(imagePath));
 
             if (spriteSheet.isError()) {
-                System.err.println("Error loading sprite sheet from: " + imagePath);
+                LOGGER.warning("Error loading sprite sheet from: " + imagePath);
                 frames = null;
                 return;
             }
@@ -61,16 +64,16 @@ public class StarshipSpriteLoader {
                 frames[i] = frame;
             }
 
-            System.out.println("Sprite sheet loaded successfully: " + FRAMES + " frames");
+            LOGGER.fine("Sprite sheet loaded successfully: " + FRAMES + " frames");
 
         } catch (Exception e) {
-            System.err.println("Exception loading sprite sheet: " + e.getMessage());
+            LOGGER.warning("Exception loading sprite sheet: " + e.getMessage());
             frames = null;
         }
     }
 
     private static Image createFallbackSprite() {
-        System.err.println("Using fallback sprite generation");
+        LOGGER.warning("Using fallback sprite generation");
         return createProgrammaticSprite();
     }
 

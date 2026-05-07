@@ -5,8 +5,10 @@ import javafx.scene.image.WritableImage;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Logger;
 
 public class EnemySpriteLoader {
+    private static final Logger LOGGER = Logger.getLogger(EnemySpriteLoader.class.getName());
     private static final int SPRITE_SIZE = 80;
     private static final int FRAMES = 16;
     private static final int COLS = 4;
@@ -42,7 +44,7 @@ public class EnemySpriteLoader {
             Image spriteSheet = new Image(EnemySpriteLoader.class.getResourceAsStream(imagePath));
 
             if (spriteSheet.isError()) {
-                System.err.println("Error loading enemy sprite sheet from: " + imagePath);
+                LOGGER.warning("Error loading enemy sprite sheet from: " + imagePath);
                 enemyTypeFrames.put(enemyType, null);
                 return;
             }
@@ -66,10 +68,10 @@ public class EnemySpriteLoader {
             }
 
             enemyTypeFrames.put(enemyType, frames);
-            System.out.println("Enemy sprite sheet " + enemyType + " loaded successfully: " + FRAMES + " frames");
+            LOGGER.fine("Enemy sprite sheet " + enemyType + " loaded successfully: " + FRAMES + " frames");
 
         } catch (Exception e) {
-            System.err.println("Exception loading enemy sprite sheet " + enemyType + ": " + e.getMessage());
+            LOGGER.warning("Exception loading enemy sprite sheet " + enemyType + ": " + e.getMessage());
             enemyTypeFrames.put(enemyType, null);
         }
     }

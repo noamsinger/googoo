@@ -5,8 +5,10 @@ import javafx.scene.image.WritableImage;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Logger;
 
 public class BlackHoleSpriteLoader {
+    private static final Logger LOGGER = Logger.getLogger(BlackHoleSpriteLoader.class.getName());
     private static final int SPRITE_SIZE = 120;
     private static final int FRAMES = 16;
     private static final int COLS = 4;
@@ -42,7 +44,7 @@ public class BlackHoleSpriteLoader {
             Image spriteSheet = new Image(BlackHoleSpriteLoader.class.getResourceAsStream(imagePath));
 
             if (spriteSheet.isError()) {
-                System.err.println("Error loading black hole sprite sheet from: " + imagePath);
+                LOGGER.warning("Error loading black hole sprite sheet from: " + imagePath);
                 colorSchemeFrames.put(colorScheme, null);
                 return;
             }
@@ -65,10 +67,10 @@ public class BlackHoleSpriteLoader {
             }
 
             colorSchemeFrames.put(colorScheme, frames);
-            System.out.println("Black hole sprite sheet " + colorScheme + " loaded successfully: " + FRAMES + " frames");
+            LOGGER.fine("Black hole sprite sheet " + colorScheme + " loaded successfully: " + FRAMES + " frames");
 
         } catch (Exception e) {
-            System.err.println("Exception loading black hole sprite sheet " + colorScheme + ": " + e.getMessage());
+            LOGGER.warning("Exception loading black hole sprite sheet " + colorScheme + ": " + e.getMessage());
             colorSchemeFrames.put(colorScheme, null);
         }
     }

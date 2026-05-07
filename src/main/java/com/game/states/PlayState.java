@@ -7,6 +7,8 @@ import com.game.core.LevelProgress;
 import com.game.util.BlackHoleSpriteLoader;
 import com.game.util.EnemySpriteLoader;
 import com.game.util.ExplosionSpriteLoader;
+import com.game.util.GemSpriteLoader;
+import com.game.util.HeartSpriteLoader;
 import com.game.util.StarshipExplosionSpriteLoader;
 import com.game.util.StarshipSpriteLoader;
 import javafx.scene.canvas.GraphicsContext;
@@ -53,8 +55,7 @@ public class PlayState extends GameState {
     // Game mode enum
     private enum GameMode {
         SHIELD,        // Shield percentage mode (1-10% damage per hit)
-        LIVES,         // Lives mode with 5-second immunity after losing a life
-        LIVE_FOREVER   // Invincible mode - no damage, no game over
+        LIVES          // Lives mode with 5-second immunity after losing a life
     }
 
     // Game mode and lives
@@ -101,11 +102,7 @@ public class PlayState extends GameState {
         boolean debugMode = settings.isDebugMode();
 
         // Set logger level based on debug mode
-        if (debugMode) {
-            LOGGER.setLevel(Level.FINE);
-        } else {
-            LOGGER.setLevel(Level.INFO);
-        }
+        setGlobalLogLevel(debugMode ? Level.FINE : Level.INFO);
 
         LOGGER.fine("PlayState init - Setting fullscreen to true");
         LOGGER.fine("Before setFullscreen - gameWidth=" + Game.gameWidth + ", gameHeight=" + Game.gameHeight);
@@ -153,9 +150,6 @@ public class PlayState extends GameState {
             case LIVES:
                 gameMode = GameMode.LIVES;
                 break;
-            case LIVE_FOREVER:
-                gameMode = GameMode.LIVE_FOREVER;
-                break;
             default:
                 gameMode = GameMode.SHIELD;
         }
@@ -176,7 +170,7 @@ public class PlayState extends GameState {
             score = levelProgress.getStartingScore();
             remainingLives = levelProgress.getStartingLives();
             spaceship.shieldPercentage = levelProgress.getStartingShield();
-            LOGGER.info("Restored progress for level " + currentLevel + ": score=" + score +
+            LOGGER.fine("Restored progress for level " + currentLevel + ": score=" + score +
                        ", lives=" + remainingLives + ", shield=" + spaceship.shieldPercentage);
         } else {
             // Starting fresh - record initial state for this level
@@ -185,7 +179,7 @@ public class PlayState extends GameState {
             spaceship.shieldPercentage = 100.0;
             progressManager.recordLevelProgress(currentLevel, settingsGameType,
                                                remainingLives, spaceship.shieldPercentage, score);
-            LOGGER.info("Starting fresh at level " + currentLevel);
+            LOGGER.fine("Starting fresh at level " + currentLevel);
         }
 
         // Show starting level message
@@ -195,21 +189,27 @@ public class PlayState extends GameState {
         // Initialize with black holes based on starting level
         blackHoles = new ArrayList<>();
         // Add black hole pairs for even levels up to current level
+        // Level 2: 1 pair (colorScheme 0)
+        // Level 4: 2 pairs (colorScheme 0, 1)
+        // Level 6: 3 pairs (colorScheme 0, 1, 2)
+        // etc., cycling through 16 color schemes
         int blackHolePairsToSpawn = (currentLevel / 2);
         for (int i = 0; i < blackHolePairsToSpawn; i++) {
-            addBlackHolePair();
+            int colorScheme = i % 16; // Cycle through 16 color schemes
+            addBlackHolePair(colorScheme);
         }
 
         // Initialize enemies based on current level
-        // Start with enemy 0, add one enemy every 2 levels
+        // At odd level L, enemy (L-1)/2 appears
         // Level 1: enemy 0
-        // Level 3: enemies 0, 1
-        // Level 5: enemies 0, 1, 2
-        // etc.
+        // Level 3: enemy 1
+        // Level 5: enemy 2
+        // etc., cycling through 16 enemy types
         enemies = new ArrayList<>();
-        int enemiesToSpawn = Math.min(16, 1 + (currentLevel / 2));
-        for (int i = 0; i < enemiesToSpawn; i++) {
-            addEnemy(i);
+        for (int level = 1; level <= currentLevel; level += 2) {
+            int enemyIndex = (level - 1) / 2;
+            int enemyType = enemyIndex % 16; // Cycle through 16 enemy types
+            addEnemy(enemyType);
         }
 
         // Initialize gems list
@@ -227,8 +227,7 @@ public class PlayState extends GameState {
         return new Star(x, y, size);
     }
 
-    private void addBlackHolePair() {
-        int colorScheme = (blackHoles.size() / 2) % 16; // Cycle through 16 color schemes
+    private void addBlackHolePair(int colorScheme) {
         double minPairDistance = Game.gameWidth / 2.0;
         double margin = 100 * Math.sqrt(scaleX * scaleY); // Scale margin
 
@@ -300,7 +299,7 @@ public class PlayState extends GameState {
             if (immunityTimer >= immunityDuration) {
                 isImmune = false;
                 immunityTimer = 0.0;
-                LOGGER.info("Immunity period ended");
+                LOGGER.fine("Immunity period ended");
             }
         }
 
@@ -319,18 +318,21 @@ public class PlayState extends GameState {
             ProgressManager progressManager = ProgressManager.getInstance();
             progressManager.recordLevelProgress(currentLevel, settings.getGameType(),
                                                remainingLives, spaceship.shieldPercentage, score);
-            LOGGER.info("Recorded progress for level " + currentLevel + ": score=" + score +
+            LOGGER.fine("Recorded progress for level " + currentLevel + ": score=" + score +
                        ", lives=" + remainingLives + ", shield=" + spaceship.shieldPercentage);
 
             // On even levels, add a black hole pair
             if (currentLevel % 2 == 0) {
-                addBlackHolePair();
+                int pairIndex = (currentLevel / 2) - 1; // 0-indexed
+                int colorScheme = pairIndex % 16; // Cycle through 16 color schemes
+                addBlackHolePair(colorScheme);
             }
 
-            // On odd levels (3, 5, 7, etc.), add a new enemy if we haven't reached max (16)
-            if (currentLevel % 2 == 1 && currentLevel >= 3 && enemies.size() < 16) {
-                int nextEnemyType = enemies.size(); // This will be 1 at level 3, 2 at level 5, etc.
-                addEnemy(nextEnemyType);
+            // On odd levels (3, 5, 7, etc.), add the corresponding enemy
+            if (currentLevel % 2 == 1 && currentLevel >= 3) {
+                int enemyIndex = (currentLevel - 1) / 2; // Level 3 -> enemy 1, level 5 -> enemy 2, etc.
+                int enemyType = enemyIndex % 16; // Cycle through 16 enemy types
+                addEnemy(enemyType);
             }
 
             LOGGER.info("Advanced to level " + currentLevel + ", black hole pairs: " + (blackHoles.size() / 2) + ", enemies: " + enemies.size());
@@ -530,10 +532,10 @@ public class PlayState extends GameState {
             double spaceshipRadius = spaceship.size / 2.0;
             double enemyRadius = 20.0 * Math.sqrt(scaleX * scaleY); // Approximate enemy size
 
-            // In 3-life mode, skip collision detection if immune
-            // In live-forever mode, always skip collision damage
-            boolean canCollide = (gameMode != GameMode.LIVE_FOREVER) &&
-                                 (gameMode != GameMode.LIVES || !isImmune);
+            // Skip collision detection if in debug mode or if immune in LIVES mode
+            GameSettings settings = GameSettings.getInstance();
+            boolean debugMode = settings.isDebugMode();
+            boolean canCollide = !debugMode && (gameMode != GameMode.LIVES || !isImmune);
 
             if (canCollide) {
                 for (int i = enemies.size() - 1; i >= 0; i--) {
@@ -582,7 +584,7 @@ public class PlayState extends GameState {
                         } else if (gameMode == GameMode.LIVES) {
                             // 3-life mode: reduce lives by 1 and start immunity
                             remainingLives--;
-                            LOGGER.info("Life lost! Remaining lives: " + remainingLives);
+                            LOGGER.fine("Life lost! Remaining lives: " + remainingLives);
                             if (remainingLives <= 0) {
                                 remainingLives = 0;
                                 // Game over - trigger starship explosion
@@ -592,7 +594,7 @@ public class PlayState extends GameState {
                                 // Start immunity period
                                 isImmune = true;
                                 immunityTimer = 0.0;
-                                LOGGER.info("Immunity period started (5 seconds)");
+                                LOGGER.fine("Immunity period started (5 seconds)");
                             }
                         }
 
@@ -601,8 +603,8 @@ public class PlayState extends GameState {
                         enemyExplosions.add(new EnemyExplosion(enemy.x, enemy.y, enemy));
                     }
                 }
-            } else if (gameMode == GameMode.LIVE_FOREVER) {
-                // In live-forever mode, still explode enemies on contact but no damage
+            } else if (debugMode) {
+                // In debug mode, still explode enemies on contact but no damage
                 for (int i = enemies.size() - 1; i >= 0; i--) {
                     Enemy enemy = enemies.get(i);
                     double dx = spaceship.x - enemy.x;
@@ -611,7 +613,7 @@ public class PlayState extends GameState {
 
                     if (distance < spaceshipRadius + enemyRadius) {
                         // Collision detected - explode enemy but no damage to spaceship
-                        LOGGER.fine("Live Forever mode: Enemy collision, no damage taken");
+                        LOGGER.fine("Debug mode: Enemy collision, no damage taken");
                         enemies.remove(i);
                         enemyExplosions.add(new EnemyExplosion(enemy.x, enemy.y, enemy));
                     }
@@ -645,15 +647,17 @@ public class PlayState extends GameState {
             spaceship.render(gc);
 
             // Render immunity/protection shield circle
-            if ((gameMode == GameMode.LIVES && isImmune) || gameMode == GameMode.LIVE_FOREVER) {
+            GameSettings settings = GameSettings.getInstance();
+            boolean debugMode = settings.isDebugMode();
+            if ((gameMode == GameMode.LIVES && isImmune) || debugMode) {
                 double circleRadius = spaceship.size * 1.5; // Circle 1.5x the spaceship size
 
                 // Calculate pulsing effect
                 double pulseProgress;
                 Color circleColor;
 
-                if (gameMode == GameMode.LIVE_FOREVER) {
-                    // Live Forever: constant golden shield, gentle pulse
+                if (debugMode) {
+                    // Debug mode: constant golden shield, gentle pulse
                     pulseProgress = (gameTime % 2.0) / 2.0; // Slower pulse (2 second cycle)
                     double pulseScale = 0.95 + Math.sin(pulseProgress * Math.PI * 2) * 0.05; // Scale between 0.95 and 1.05
                     double actualRadius = circleRadius * pulseScale;
@@ -668,7 +672,7 @@ public class PlayState extends GameState {
                         actualRadius * 2
                     );
                 } else {
-                    // 3-Lives immunity: cyan shield, faster pulse
+                    // Lives immunity: cyan shield, faster pulse
                     pulseProgress = (immunityTimer % 0.5) / 0.5; // Pulse every 0.5 seconds
                     double pulseScale = 0.9 + Math.sin(pulseProgress * Math.PI * 2) * 0.1; // Scale between 0.9 and 1.1
                     double actualRadius = circleRadius * pulseScale;
@@ -824,11 +828,6 @@ public class PlayState extends GameState {
             statusText = String.format("Remaining %d %s", remainingLives, remainingLives == 1 ? "life" : "lives");
             statusValue = remainingLives;
             maxValue = Math.max(5, remainingLives); // Dynamic max based on current lives
-        } else if (gameMode == GameMode.LIVE_FOREVER) {
-            // Live forever mode
-            statusText = "Live Forever";
-            statusValue = 100; // Always full for color purposes
-            maxValue = 100;
         } else {
             // Shield mode
             statusText = String.format("Shield %d%%", (int) spaceship.shieldPercentage);
@@ -900,25 +899,22 @@ public class PlayState extends GameState {
             debugMessageTimer = 0.0;
             debugMessageText = newDebugMode ? "Debug ON" : "Debug OFF";
 
-            // Set logger level based on debug mode
+            // Debug mode changed, show message and adjust log level
             if (newDebugMode) {
-                LOGGER.setLevel(Level.FINE);
-                LOGGER.info("Debug mode enabled");
+                setGlobalLogLevel(Level.FINE);
+                LOGGER.info("Debug mode enabled - log level set to FINE");
             } else {
-                LOGGER.setLevel(Level.INFO);
-                LOGGER.info("Debug mode disabled");
+                setGlobalLogLevel(Level.INFO);
+                LOGGER.info("Debug mode disabled - log level set to INFO");
             }
         } else if (key == KeyCode.L && keyShiftPressed) {
-            // Cycle through game modes with Shift+L: SHIELD -> LIVES -> LIVE_FOREVER -> SHIELD
+            // Cycle through game modes with Shift+L: SHIELD -> LIVES -> SHIELD
             if (gameMode == GameMode.SHIELD) {
                 gameMode = GameMode.LIVES;
                 remainingLives = 3;
                 isImmune = false;
                 immunityTimer = 0.0;
                 debugMessageText = "Lives Mode";
-            } else if (gameMode == GameMode.LIVES) {
-                gameMode = GameMode.LIVE_FOREVER;
-                debugMessageText = "Live Forever Mode";
             } else {
                 gameMode = GameMode.SHIELD;
                 spaceship.shieldPercentage = 100.0;
@@ -2082,7 +2078,7 @@ public class PlayState extends GameState {
         StarshipExplosion(double x, double y) {
             this.x = x;
             this.y = y;
-            LOGGER.info("Starship explosion started at (" + x + ", " + y + ")");
+            LOGGER.fine("Starship explosion started at (" + x + ", " + y + ")");
         }
 
         void update(double deltaTime) {
@@ -2192,11 +2188,6 @@ public class PlayState extends GameState {
             this.x = x;
             this.y = y;
             this.gemType = gemType;
-
-            // Load gem sprites if not already loaded
-            if (gemSpritesCache == null) {
-                loadGemSprites();
-            }
         }
 
         void update(double deltaTime) {
@@ -2214,9 +2205,8 @@ public class PlayState extends GameState {
         }
 
         void render(GraphicsContext gc) {
-            if (gemSpritesCache != null) {
-                Image frame = gemSpritesCache[gemType * 16 + currentFrame];
-                if (frame != null) {
+            Image frame = GemSpriteLoader.getGemFrame(gemType, currentFrame);
+            if (frame != null) {
                     double scale = Math.sqrt(scaleX * scaleY) * 0.8; // Slightly smaller than enemies
                     double width = frame.getWidth() * scale;
                     double height = frame.getHeight() * scale;
@@ -2231,37 +2221,6 @@ public class PlayState extends GameState {
                 }
             }
         }
-    }
-
-    // Gem sprite cache at class level
-    private Image[] gemSpritesCache = null;
-
-    private void loadGemSprites() {
-        gemSpritesCache = new Image[16 * 16]; // 16 gem types * 16 frames each
-        for (int type = 0; type < 16; type++) {
-            String path = "images/gem_sheet_" + type + ".png";
-            try {
-                Image sheet = new Image(getClass().getClassLoader().getResourceAsStream(path));
-                int frameSize = 80;
-                int framesPerRow = 4;
-
-                for (int frame = 0; frame < 16; frame++) {
-                    int col = frame % framesPerRow;
-                    int row = frame / framesPerRow;
-                    int x = col * frameSize;
-                    int y = row * frameSize;
-
-                    javafx.scene.image.PixelReader reader = sheet.getPixelReader();
-                    javafx.scene.image.WritableImage frameImage = new javafx.scene.image.WritableImage(
-                        reader, x, y, frameSize, frameSize
-                    );
-                    gemSpritesCache[type * 16 + frame] = frameImage;
-                }
-            } catch (Exception e) {
-                LOGGER.warning("Failed to load gem sprite: " + path);
-            }
-        }
-    }
 
     // Heart spawning and collection methods
     private void spawnHeart() {
@@ -2299,16 +2258,15 @@ public class PlayState extends GameState {
         if (gameMode == GameMode.LIVES) {
             // Add a life (unlimited)
             remainingLives = remainingLives + 1;
-            LOGGER.info("Heart collected! Lives: " + remainingLives);
+            LOGGER.fine("Heart collected! Lives: " + remainingLives);
         } else if (gameMode == GameMode.SHIELD) {
             // Fill shield based on heart percentage
             // heartPercentage ranges from 100 (just spawned) to 10 (about to vanish)
             // Formula: newShield = currentShield + (heartPercentage / 100) * (100 - currentShield)
             double fillAmount = (heartPercentage / 100.0) * (100.0 - spaceship.shieldPercentage);
             spaceship.shieldPercentage = Math.min(100.0, spaceship.shieldPercentage + fillAmount);
-            LOGGER.info("Heart collected! Shield: " + spaceship.shieldPercentage + "%");
+            LOGGER.fine("Heart collected! Shield: " + spaceship.shieldPercentage + "%");
         }
-        // LIVE_FOREVER mode: no effect
     }
 
     private class Heart {
@@ -2323,11 +2281,6 @@ public class PlayState extends GameState {
         Heart(double x, double y) {
             this.x = x;
             this.y = y;
-
-            // Load heart sprites if not already loaded
-            if (heartSpritesCache == null) {
-                loadHeartSprites();
-            }
         }
 
         void update(double deltaTime) {
@@ -2357,8 +2310,8 @@ public class PlayState extends GameState {
         }
 
         void render(GraphicsContext gc) {
-            if (heartSpritesCache != null && currentFrame < heartSpritesCache.length && heartSpritesCache[currentFrame] != null) {
-                Image frame = heartSpritesCache[currentFrame];
+            Image frame = HeartSpriteLoader.getHeartFrame(currentFrame);
+            if (frame != null) {
                 double scale = Math.sqrt(scaleX * scaleY) * 0.8;
                 double width = frame.getWidth() * scale;
                 double height = frame.getHeight() * scale;
@@ -2376,32 +2329,20 @@ public class PlayState extends GameState {
         }
     }
 
-    // Heart sprite cache at class level
-    private Image[] heartSpritesCache = null;
-
-    private void loadHeartSprites() {
-        String path = "images/heart_sheet.png";
-        try {
-            Image sheet = new Image(getClass().getClassLoader().getResourceAsStream(path));
-            int frameSize = 80;
-            int framesPerRow = 4;
-            int numFrames = 16;
-
-            heartSpritesCache = new Image[numFrames];
-            for (int frame = 0; frame < numFrames; frame++) {
-                int col = frame % framesPerRow;
-                int row = frame / framesPerRow;
-                int frameX = col * frameSize;
-                int frameY = row * frameSize;
-
-                javafx.scene.image.PixelReader reader = sheet.getPixelReader();
-                javafx.scene.image.WritableImage frameImage = new javafx.scene.image.WritableImage(
-                    reader, frameX, frameY, frameSize, frameSize
-                );
-                heartSpritesCache[frame] = frameImage;
+    /**
+     * Sets the log level globally for all loggers in the game package.
+     */
+    private static void setGlobalLogLevel(Level level) {
+        // Set console handler to output all levels
+        Logger rootLogger = Logger.getLogger("");
+        for (java.util.logging.Handler handler : rootLogger.getHandlers()) {
+            if (handler instanceof java.util.logging.ConsoleHandler) {
+                handler.setLevel(Level.ALL);
             }
-        } catch (Exception e) {
-            LOGGER.warning("Failed to load heart sprite: " + path);
         }
+
+        // Set level for all game package loggers
+        Logger.getLogger("com.game").setLevel(level);
     }
+
 }

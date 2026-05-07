@@ -4,7 +4,10 @@ import javafx.scene.image.Image;
 import javafx.scene.image.PixelReader;
 import javafx.scene.image.WritableImage;
 
+import java.util.logging.Logger;
+
 public class GemSpriteLoader {
+    private static final Logger LOGGER = Logger.getLogger(GemSpriteLoader.class.getName());
     private static final int SPRITE_SIZE = 80;
     private static final int FRAMES = 16;
     private static final int COLS = 4;
@@ -42,7 +45,7 @@ public class GemSpriteLoader {
                 Image sheet = new Image(GemSpriteLoader.class.getResourceAsStream(path));
 
                 if (sheet.isError()) {
-                    System.err.println("Error loading gem sprite sheet: " + path);
+                    LOGGER.warning("Error loading gem sprite sheet: " + path);
                     continue;
                 }
 
@@ -59,9 +62,9 @@ public class GemSpriteLoader {
                     gemSpritesCache[type * FRAMES + frame] = frameImage;
                 }
 
-                System.out.println("Gem sprite sheet " + type + " loaded successfully: " + FRAMES + " frames");
+                LOGGER.fine("Gem sprite sheet " + type + " loaded successfully: " + FRAMES + " frames");
             } catch (Exception e) {
-                System.err.println("Exception loading gem sprite sheet " + type + ": " + e.getMessage());
+                LOGGER.warning("Exception loading gem sprite sheet " + type + ": " + e.getMessage());
             }
         }
     }

@@ -21,6 +21,43 @@ A 2D space shooter game built with JavaFX featuring a player-controlled spaceshi
 2. **Lives Mode**: Player starts with 3 lives, can collect unlimited lives via hearts
 3. **Live Forever Mode**: Invincible practice mode with no damage or game over
 
+### Level Progression
+
+The game progresses through levels with enemies and black holes appearing at specific intervals:
+
+#### Black Holes (appear on EVEN levels)
+- **Level 2**: Black hole pair 0 (colorScheme 0)
+- **Level 4**: Black hole pair 1 (colorScheme 1)
+- **Level 6**: Black hole pair 2 (colorScheme 2)
+- **Level 2N**: Black hole pair N-1 (colorScheme (N-1) % 16)
+
+**Formula**: At even level L, black hole pair index = (L/2 - 1), colorScheme = ((L/2 - 1) % 16)
+
+After 16 pairs (level 32), color schemes wrap around: Level 34 uses colorScheme 0 again.
+
+#### Enemies (appear on ODD levels)
+- **Level 1**: Enemy 0 (enemyType 0)
+- **Level 3**: Enemy 1 (enemyType 1)
+- **Level 5**: Enemy 2 (enemyType 2)
+- **Level (2N+1)**: Enemy N (enemyType N % 16)
+
+**Formula**: At odd level L, enemy index = ((L-1)/2), enemyType = ((L-1)/2) % 16
+
+After 16 enemies (level 31), enemy types wrap around: Level 33 spawns enemyType 0 again.
+
+#### Starting at Level K
+When starting at level K > 1:
+- **Black holes**: Spawn all pairs from levels 2, 4, 6, ... up to floor(K/2)*2
+  - Pairs: 0, 1, 2, ..., (K/2 - 1) with colorSchemes modulo 16
+- **Enemies**: Spawn all enemies from levels 1, 3, 5, ... up to (K-1 if K even, K if K odd)
+  - Enemies: 0, 1, 2, ..., floor(K/2) with enemyTypes modulo 16
+
+**Examples:**
+- Level 1: 0 black hole pairs, 1 enemy (type 0)
+- Level 5: 2 black hole pairs (schemes 0, 1), 3 enemies (types 0, 1, 2)
+- Level 10: 5 black hole pairs (schemes 0-4), 5 enemies (types 0-4)
+- Level 33: 16 black hole pairs (schemes 0-15), 17 enemies (types 0-15, 0)
+
 ### Scoring System
 - **Gem Collection**: Score increases by collecting gems
 - **Score Display**: Large rainbow-colored text (48pt font)

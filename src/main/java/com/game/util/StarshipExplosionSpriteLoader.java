@@ -3,7 +3,10 @@ package com.game.util;
 import javafx.scene.image.Image;
 import javafx.scene.image.WritableImage;
 
+import java.util.logging.Logger;
+
 public class StarshipExplosionSpriteLoader {
+    private static final Logger LOGGER = Logger.getLogger(StarshipExplosionSpriteLoader.class.getName());
     private static final int FRAME_COUNT = 256;
     private static final int FRAME_SIZE = 300;
     private static final int FRAMES_PER_ROW = 16;
@@ -18,7 +21,7 @@ public class StarshipExplosionSpriteLoader {
 
         try {
             spriteSheet = new Image(StarshipExplosionSpriteLoader.class.getResourceAsStream("/images/starship_explosion_sheet.png"));
-            System.out.println("Starship explosion sprite sheet loaded successfully: " + FRAME_COUNT + " frames");
+            LOGGER.fine("Starship explosion sprite sheet loaded successfully: " + FRAME_COUNT + " frames");
 
             explosionFrames = new Image[FRAME_COUNT];
 
@@ -36,7 +39,7 @@ public class StarshipExplosionSpriteLoader {
                 explosionFrames[i] = frameImage;
             }
         } catch (Exception e) {
-            System.err.println("Failed to load starship explosion sprite sheet: " + e.getMessage());
+            LOGGER.warning("Failed to load starship explosion sprite sheet: " + e.getMessage());
             e.printStackTrace();
         }
     }

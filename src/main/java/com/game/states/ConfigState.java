@@ -51,12 +51,6 @@ public class ConfigState extends GameState {
         // Always add level 1
         availableLevelOptions.add("1");
 
-        // For Live Forever mode, only level 1 is available
-        if (settings.getGameType() == GameSettings.GameType.LIVE_FOREVER) {
-            currentLevelOptionIndex = 0;
-            return;
-        }
-
         // Add levels with progress for current game type
         List<Integer> levels = progressManager.getAvailableLevels(settings.getGameType());
         for (Integer level : levels) {

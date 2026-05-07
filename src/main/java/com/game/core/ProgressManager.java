@@ -7,11 +7,13 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.logging.Logger;
 
 /**
  * Manages saving and loading of level progress from googoo-scores.ini file.
  */
 public class ProgressManager {
+    private static final Logger LOGGER = Logger.getLogger(ProgressManager.class.getName());
     private static final String CONFIG_DIR_NAME = ".config/googoo";
     private static final String PROGRESS_FILE_NAME = "googoo-scores.ini";
     private static ProgressManager instance;
@@ -50,21 +52,15 @@ public class ProgressManager {
                 Files.createDirectories(configDir);
             }
         } catch (IOException e) {
-            System.err.println("Error creating config directory: " + e.getMessage());
+            LOGGER.warning("Error creating config directory: " + e.getMessage());
         }
     }
 
     /**
      * Records progress for a specific level and game type.
-     * Does not record progress for LIVE_FOREVER mode.
      */
     public void recordLevelProgress(int level, GameSettings.GameType gameType,
                                    int lives, double shield, int score) {
-        // Don't record progress for Live Forever mode
-        if (gameType == GameSettings.GameType.LIVE_FOREVER) {
-            return;
-        }
-
         LevelProgress progress = new LevelProgress(level, gameType, lives, shield, score);
         progressMap.put(progress.getKey(), progress);
 
@@ -99,8 +95,6 @@ public class ProgressManager {
                 return lastLevelShield;
             case LIVES:
                 return lastLevelLives;
-            case LIVE_FOREVER:
-                return lastLevelLiveForever;
             default:
                 return 1;
         }
@@ -109,16 +103,9 @@ public class ProgressManager {
     /**
      * Gets all levels with recorded progress for a game type.
      * Returns levels 1 through the last level reached.
-     * For LIVE_FOREVER mode, only returns level 1.
      */
     public java.util.List<Integer> getAvailableLevels(GameSettings.GameType gameType) {
         java.util.List<Integer> levels = new java.util.ArrayList<>();
-
-        // Live Forever mode only has level 1 available
-        if (gameType == GameSettings.GameType.LIVE_FOREVER) {
-            levels.add(1);
-            return levels;
-        }
 
         int lastLevel = getLastLevel(gameType);
 
@@ -161,7 +148,7 @@ public class ProgressManager {
         try (FileWriter writer = new FileWriter(getProgressFilePath().toFile())) {
             props.store(writer, "Googoo Game Progress");
         } catch (IOException e) {
-            System.err.println("Error saving progress: " + e.getMessage());
+            LOGGER.warning("Error saving progress: " + e.getMessage());
         }
     }
 
@@ -178,29 +165,56 @@ public class ProgressManager {
         try (FileReader reader = new FileReader(path.toFile())) {
             props.load(reader);
 
-            // Load last levels
-            lastLevelShield = Integer.parseInt(props.getProperty("LAST_LEVEL_SHIELD", "1"));
-            lastLevelLives = Integer.parseInt(props.getProperty("LAST_LEVEL_LIVES", "1"));
-            lastLevelLiveForever = Integer.parseInt(props.getProperty("LAST_LEVEL_LIVE_FOREVER", "1"));
+            // Load last levels with better error handling
+            try {
+                String shieldStr = props.getProperty("LAST_LEVEL_SHIELD", "1");
+                // Handle corrupted float values
+                if (shieldStr.contains(".")) {
+                    lastLevelShield = (int) Double.parseDouble(shieldStr);
+                } else {
+                    lastLevelShield = Integer.parseInt(shieldStr);
+                }
+            } catch (NumberFormatException e) {
+                LOGGER.warning("Error parsing LAST_LEVEL_SHIELD, using default: " + e.getMessage());
+                lastLevelShield = 1;
+            }
+
+            try {
+                lastLevelLives = Integer.parseInt(props.getProperty("LAST_LEVEL_LIVES", "1"));
+            } catch (NumberFormatException e) {
+                LOGGER.warning("Error parsing LAST_LEVEL_LIVES, using default: " + e.getMessage());
+                lastLevelLives = 1;
+            }
+
+            try {
+                lastLevelLiveForever = Integer.parseInt(props.getProperty("LAST_LEVEL_LIVE_FOREVER", "1"));
+            } catch (NumberFormatException e) {
+                LOGGER.warning("Error parsing LAST_LEVEL_LIVE_FOREVER, using default: " + e.getMessage());
+                lastLevelLiveForever = 1;
+            }
 
             // Load all level progress
             for (String key : props.stringPropertyNames()) {
-                if (key.endsWith("_LIVES")) {
+                if (key.endsWith("_LIVES") && !key.startsWith("LAST_LEVEL")) {
                     String prefix = key.substring(0, key.length() - "_LIVES".length());
 
-                    int lives = Integer.parseInt(props.getProperty(prefix + "_LIVES", "3"));
-                    double shield = Double.parseDouble(props.getProperty(prefix + "_SHIELD", "100.0"));
-                    int score = Integer.parseInt(props.getProperty(prefix + "_SCORE", "0"));
+                    try {
+                        int lives = Integer.parseInt(props.getProperty(prefix + "_LIVES", "3"));
+                        double shield = Double.parseDouble(props.getProperty(prefix + "_SHIELD", "100.0"));
+                        int score = Integer.parseInt(props.getProperty(prefix + "_SCORE", "0"));
 
-                    int level = LevelProgress.getLevelFromKey(prefix);
-                    GameSettings.GameType gameType = LevelProgress.getGameTypeFromKey(prefix);
+                        int level = LevelProgress.getLevelFromKey(prefix);
+                        GameSettings.GameType gameType = LevelProgress.getGameTypeFromKey(prefix);
 
-                    LevelProgress progress = new LevelProgress(level, gameType, lives, shield, score);
-                    progressMap.put(prefix, progress);
+                        LevelProgress progress = new LevelProgress(level, gameType, lives, shield, score);
+                        progressMap.put(prefix, progress);
+                    } catch (NumberFormatException e) {
+                        LOGGER.warning("Error parsing level progress for " + prefix + ": " + e.getMessage());
+                    }
                 }
             }
-        } catch (IOException | NumberFormatException e) {
-            System.err.println("Error loading progress: " + e.getMessage());
+        } catch (IOException e) {
+            LOGGER.warning("Error loading progress: " + e.getMessage());
         }
     }
 

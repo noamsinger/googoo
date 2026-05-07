@@ -64,7 +64,7 @@ public class GameSettings {
         Path configPath = getConfigFilePath();
 
         if (!Files.exists(configPath)) {
-            LOGGER.info("Config file not found at: " + configPath + ", using defaults");
+            LOGGER.fine("Config file not found at: " + configPath + ", using defaults");
             return;
         }
 
@@ -128,7 +128,7 @@ public class GameSettings {
                 }
             }
 
-            LOGGER.info("Settings loaded from: " + configPath);
+            LOGGER.fine("Settings loaded from: " + configPath);
         } catch (IOException e) {
             LOGGER.warning("Failed to load settings from: " + configPath + " - " + e.getMessage());
         }
@@ -141,7 +141,7 @@ public class GameSettings {
         Path debugConfigPath = getDebugConfigFilePath();
 
         if (!Files.exists(debugConfigPath)) {
-            LOGGER.info("Debug config file not found at: " + debugConfigPath + ", using default (disabled)");
+            LOGGER.fine("Debug config file not found at: " + debugConfigPath + ", using default (disabled)");
             return;
         }
 
@@ -154,7 +154,7 @@ public class GameSettings {
                 debugMode = Boolean.parseBoolean(debugModeStr);
             }
 
-            LOGGER.info("Debug mode loaded from: " + debugConfigPath + " - debugMode=" + debugMode);
+            LOGGER.fine("Debug mode loaded from: " + debugConfigPath + " - debugMode=" + debugMode);
         } catch (IOException e) {
             LOGGER.warning("Failed to load debug mode from: " + debugConfigPath + " - " + e.getMessage());
         }
@@ -317,8 +317,7 @@ public class GameSettings {
 
     public enum GameType {
         SHIELD("Shield Level"),
-        LIVES("Lives"),
-        LIVE_FOREVER("Live Forever");
+        LIVES("Lives");
 
         private final String displayName;
 

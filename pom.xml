@@ -55,6 +55,9 @@
                 <version>0.0.8</version>
                 <configuration>
                     <mainClass>com.game.core.Game</mainClass>
+                    <options>
+                        <option>-Djava.util.logging.config.class=com.game.core.LoggingConfigurator</option>
+                    </options>
                 </configuration>
             </plugin>
         </plugins>

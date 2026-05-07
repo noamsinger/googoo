@@ -3,7 +3,10 @@ package com.game.util;
 import javafx.scene.image.Image;
 import javafx.scene.image.WritableImage;
 
+import java.util.logging.Logger;
+
 public class ExplosionSpriteLoader {
+    private static final Logger LOGGER = Logger.getLogger(ExplosionSpriteLoader.class.getName());
     private static final int FRAME_COUNT = 32;
     private static final int FRAME_SIZE = 120;
     private static final int FRAMES_PER_ROW = 8;
@@ -18,7 +21,7 @@ public class ExplosionSpriteLoader {
 
         try {
             spriteSheet = new Image(ExplosionSpriteLoader.class.getResourceAsStream("/images/enemy_explosion_sheet.png"));
-            System.out.println("Enemy explosion sprite sheet loaded successfully: " + FRAME_COUNT + " frames");
+            LOGGER.fine("Enemy explosion sprite sheet loaded successfully: " + FRAME_COUNT + " frames");
 
             explosionFrames = new Image[FRAME_COUNT];
 
@@ -36,7 +39,7 @@ public class ExplosionSpriteLoader {
                 explosionFrames[i] = frameImage;
             }
         } catch (Exception e) {
-            System.err.println("Failed to load enemy explosion sprite sheet: " + e.getMessage());
+            LOGGER.warning("Failed to load enemy explosion sprite sheet: " + e.getMessage());
             e.printStackTrace();
         }
     }

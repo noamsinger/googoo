@@ -4,7 +4,10 @@ import javafx.scene.image.Image;
 import javafx.scene.image.PixelReader;
 import javafx.scene.image.WritableImage;
 
+import java.util.logging.Logger;
+
 public class HeartSpriteLoader {
+    private static final Logger LOGGER = Logger.getLogger(HeartSpriteLoader.class.getName());
     private static final int SPRITE_SIZE = 80;
     private static final int FRAMES = 16;
     private static final int COLS = 4;
@@ -33,7 +36,7 @@ public class HeartSpriteLoader {
             Image sheet = new Image(HeartSpriteLoader.class.getResourceAsStream(path));
 
             if (sheet.isError()) {
-                System.err.println("Error loading heart sprite sheet: " + path);
+                LOGGER.warning("Error loading heart sprite sheet: " + path);
                 heartSpritesCache = null;
                 return;
             }
@@ -52,9 +55,9 @@ public class HeartSpriteLoader {
                 heartSpritesCache[frame] = frameImage;
             }
 
-            System.out.println("Heart sprite sheet loaded successfully: " + FRAMES + " frames");
+            LOGGER.fine("Heart sprite sheet loaded successfully: " + FRAMES + " frames");
         } catch (Exception e) {
-            System.err.println("Exception loading heart sprite sheet: " + e.getMessage());
+            LOGGER.warning("Exception loading heart sprite sheet: " + e.getMessage());
             heartSpritesCache = null;
         }
     }

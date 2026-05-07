@@ -12,6 +12,7 @@ import javafx.scene.layout.StackPane;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class Game extends Application {
@@ -35,15 +36,19 @@ public class Game extends Application {
 
     @Override
     public void start(Stage stage) {
-        LOGGER.info("Starting game application");
+        LOGGER.fine("Starting game application");
         primaryStage = stage;
-        adjustMaxResolution();
 
+        // Show stage early to avoid macOS activation timeout
         primaryStage.setTitle(TITLE);
+        primaryStage.show();
+        primaryStage.toFront();
+
+        adjustMaxResolution();
 
         canvas = new Canvas(WINDOW_WIDTH, WINDOW_HEIGHT);
         gc = canvas.getGraphicsContext2D();
-        LOGGER.info("Canvas created with size: " + WINDOW_WIDTH + "x" + WINDOW_HEIGHT);
+        LOGGER.fine("Canvas created with size: " + WINDOW_WIDTH + "x" + WINDOW_HEIGHT);
 
         gsm = new GameStateManager();
 
@@ -97,7 +102,6 @@ public class Game extends Application {
         primaryStage.setScene(scene);
         primaryStage.setResizable(false);
         primaryStage.setFullScreenExitHint("");
-        primaryStage.show();
 
         primaryStage.setOnCloseRequest(e -> {
             LOGGER.info("Close requested");
@@ -122,7 +126,7 @@ public class Game extends Application {
             }
         }.start();
 
-        LOGGER.info("Game loop started");
+        LOGGER.fine("Game loop started");
     }
 
     private void adjustMaxResolution() {
@@ -153,10 +157,20 @@ public class Game extends Application {
         GAME_MAX_WIDTH = maxWidth;
         GAME_MAX_HEIGHT = maxHeight;
 
-        LOGGER.info("Max game resolution set to: " + GAME_MAX_WIDTH + "x" + GAME_MAX_HEIGHT);
+        LOGGER.fine("Max game resolution set to: " + GAME_MAX_WIDTH + "x" + GAME_MAX_HEIGHT);
     }
 
     public static void main(String[] args) {
+        // LoggingConfigurator has already suppressed JavaFX warnings
+        // and configured the console handler (via java.util.logging.config.class)
+
+        // Initialize log level based on debug mode before app starts
+        GameSettings settings = GameSettings.getInstance();
+        Level logLevel = settings.isDebugMode() ? Level.FINE : Level.INFO;
+
+        // Set level for all game package loggers
+        Logger.getLogger("com.game").setLevel(logLevel);
+
         launch(args);
     }
 
