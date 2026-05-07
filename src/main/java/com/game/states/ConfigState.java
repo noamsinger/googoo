@@ -85,14 +85,18 @@ public class ConfigState extends GameState {
 
     @Override
     public void render(GraphicsContext gc) {
+        // Use actual game dimensions for rendering
+        double canvasWidth = Game.gameWidth;
+        double canvasHeight = Game.gameHeight;
+
         gc.setFill(Color.rgb(20, 20, 30));
-        gc.fillRect(0, 0, Game.WINDOW_WIDTH, Game.WINDOW_HEIGHT);
+        gc.fillRect(0, 0, canvasWidth, canvasHeight);
 
         // Title
         gc.setFont(titleFont);
         gc.setFill(Color.rgb(100, 200, 255));
         String title = "Settings";
-        double titleX = TextUtils.centerTextX(title, titleFont, Game.WINDOW_WIDTH);
+        double titleX = TextUtils.centerTextX(title, titleFont, canvasWidth);
         gc.fillText(title, titleX, 100);
 
         GameSettings settings = GameSettings.getInstance();
@@ -129,12 +133,12 @@ public class ConfigState extends GameState {
         gc.setFont(Font.font("Arial", FontWeight.NORMAL, 18));
         gc.setFill(Color.LIGHTGRAY);
         String instructions = "Use UP/DOWN to navigate, LEFT/RIGHT to change values, ENTER to select";
-        double instrX = TextUtils.centerTextX(instructions, gc.getFont(), Game.WINDOW_WIDTH);
-        gc.fillText(instructions, instrX, Game.WINDOW_HEIGHT - 50);
+        double instrX = TextUtils.centerTextX(instructions, gc.getFont(), canvasWidth);
+        gc.fillText(instructions, instrX, canvasHeight - 50);
     }
 
     private void renderOption(GraphicsContext gc, String label, String value, double y, boolean selected) {
-        double centerX = Game.WINDOW_WIDTH / 2.0;
+        double centerX = Game.gameWidth / 2.0;
         double labelX = centerX - 200;
         double valueX = centerX + 50;
 
@@ -284,7 +288,7 @@ public class ConfigState extends GameState {
 
     @Override
     public void mouseClicked(double x, double y) {
-        double centerX = Game.WINDOW_WIDTH / 2.0;
+        double centerX = Game.gameWidth / 2.0;
         double valueX = centerX + 50;
         double startY = 200;
         double lineHeight = 80;

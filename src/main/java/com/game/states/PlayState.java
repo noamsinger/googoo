@@ -45,7 +45,6 @@ public class PlayState extends GameState {
     private static final double BOUNDARY_MARGIN_SPEED = 100.0; // Additional margin based on speed
     private static final double EDGE_MARGIN = 150.0; // Margin for black holes from edges
     private static final double CLAMP_MARGIN = 60.0; // Margin for position clamping
-    private static final double BOUNDARY_SPEED_REDUCTION = 0.8; // Speed reduced to 80% on boundary hit
 
     // Timing constants
     private static final double IMMUNITY_DURATION = 5.0; // 5 seconds of immunity after losing a life
@@ -55,6 +54,10 @@ public class PlayState extends GameState {
     private static final double WORMHOLE_DURATION = 0.5; // 0.5 seconds for shrink/expand phases
     private static final double SMOKE_INTERVAL = 0.05; // Emit smoke every 0.05 seconds
     private static final double SPRITE_ANIMATION_INTERVAL = 0.25; // Change sprite frame every 0.25 seconds
+
+    // Enemy appearance order: progresses from 0 skills → 1 skill → 2 skills → 3 skills → 4 skills
+    // Order: 0, 1, 2, 4, 8, 3, 5, 6, 9, 10, 12, 7, 11, 13, 14, 15
+    private static final int[] ENEMY_APPEARANCE_ORDER = {0, 1, 2, 4, 8, 3, 5, 6, 9, 10, 12, 7, 11, 13, 14, 15};
 
     // Resolution scaling factors
     private double scaleX;
@@ -228,15 +231,16 @@ public class PlayState extends GameState {
         }
 
         // Initialize enemies based on current level
-        // At odd level L, enemy (L-1)/2 appears
-        // Level 1: enemy 0
-        // Level 3: enemy 1
-        // Level 5: enemy 2
-        // etc., cycling through 16 enemy types
+        // At odd level L, enemy at index (L-1)/2 in appearance order
+        // Level 1: index 0 -> enemy 0 (no skills)
+        // Level 3: index 1 -> enemy 1 (1 skill)
+        // Level 5: index 2 -> enemy 2 (1 skill)
+        // etc., following ENEMY_APPEARANCE_ORDER
         enemies = new ArrayList<>();
         for (int level = 1; level <= currentLevel; level += 2) {
             int enemyIndex = (level - 1) / 2;
-            int enemyType = enemyIndex % 16; // Cycle through 16 enemy types
+            int orderIndex = enemyIndex % 16; // Cycle through the 16 positions
+            int enemyType = ENEMY_APPEARANCE_ORDER[orderIndex]; // Get enemy type from appearance order
             addEnemy(enemyType);
         }
 
@@ -358,8 +362,9 @@ public class PlayState extends GameState {
 
             // On odd levels (3, 5, 7, etc.), add the corresponding enemy
             if (currentLevel % 2 == 1 && currentLevel >= 3) {
-                int enemyIndex = (currentLevel - 1) / 2; // Level 3 -> enemy 1, level 5 -> enemy 2, etc.
-                int enemyType = enemyIndex % 16; // Cycle through 16 enemy types
+                int enemyIndex = (currentLevel - 1) / 2; // Level 3 -> index 1, level 5 -> index 2, etc.
+                int orderIndex = enemyIndex % 16; // Cycle through the 16 positions
+                int enemyType = ENEMY_APPEARANCE_ORDER[orderIndex]; // Get enemy type from appearance order
                 addEnemy(enemyType);
             }
 
@@ -1489,12 +1494,9 @@ public class PlayState extends GameState {
                 hitBoundary = true;
             }
 
-            // Normalize angle and reduce speed on boundary hit
+            // Normalize angle on boundary hit (no speed reduction)
             if (hitBoundary) {
                 angle = MathUtils.normalizeAngle(angle);
-
-                // Reduce speed by 20% when hitting boundary, but not below minimum
-                speed = Math.max(minSpeed, speed * BOUNDARY_SPEED_REDUCTION);
             }
         }
 

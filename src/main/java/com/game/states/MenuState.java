@@ -33,10 +33,11 @@ public class MenuState extends GameState {
         titleFont = Font.font("Arial", FontWeight.BOLD, 48);
         menuFont = Font.font("Arial", FontWeight.NORMAL, 32);
 
+        // Store menu items with text only - positions will be calculated dynamically during render
         menuItems = new ArrayList<>();
-        menuItems.add(new MenuItem("Start", Game.WINDOW_WIDTH / 2.0, Game.WINDOW_HEIGHT / 2.0 - 50));
-        menuItems.add(new MenuItem("Config", Game.WINDOW_WIDTH / 2.0, Game.WINDOW_HEIGHT / 2.0 + 50));
-        menuItems.add(new MenuItem("Exit", Game.WINDOW_WIDTH / 2.0, Game.WINDOW_HEIGHT / 2.0 + 150));
+        menuItems.add(new MenuItem("Start", 0, 0));
+        menuItems.add(new MenuItem("Config", 0, 0));
+        menuItems.add(new MenuItem("Exit", 0, 0));
 
         currentSelection = 0;
     }
@@ -47,35 +48,49 @@ public class MenuState extends GameState {
 
     @Override
     public void render(GraphicsContext gc) {
+        // Use actual game dimensions for rendering
+        double canvasWidth = Game.gameWidth;
+        double canvasHeight = Game.gameHeight;
+
         gc.setFill(Color.rgb(20, 20, 30));
-        gc.fillRect(0, 0, Game.WINDOW_WIDTH, Game.WINDOW_HEIGHT);
+        gc.fillRect(0, 0, canvasWidth, canvasHeight);
 
         gc.setFont(titleFont);
         gc.setFill(Color.rgb(100, 200, 255));
         String title = Game.TITLE;
-        double titleX = TextUtils.centerTextX(title, titleFont, Game.WINDOW_WIDTH);
-        gc.fillText(title, titleX, Game.WINDOW_HEIGHT / 3.0);
+        double titleX = TextUtils.centerTextX(title, titleFont, canvasWidth);
+        gc.fillText(title, titleX, canvasHeight / 3.0);
 
         gc.setFont(menuFont);
+
+        // Calculate menu item positions dynamically based on current canvas size
+        double centerX = canvasWidth / 2.0;
+        double centerY = canvasHeight / 2.0;
+        double[] yPositions = {centerY - 50, centerY + 50, centerY + 150};
+
         for (int i = 0; i < menuItems.size(); i++) {
             MenuItem item = menuItems.get(i);
 
+            // Use dynamically calculated position
+            double itemX = centerX;
+            double itemY = yPositions[i];
+
             double textWidth = TextUtils.measureTextWidth(item.getText(), menuFont);
             double textHeight = TextUtils.measureTextHeight(item.getText(), menuFont);
-            double textX = item.getX() - textWidth / 2;
+            double textX = itemX - textWidth / 2;
 
             if (i == currentSelection) {
                 gc.setFill(Color.rgb(255, 215, 0, 0.3));
-                gc.fillRoundRect(textX - 20, item.getY() - textHeight + 5, textWidth + 40, textHeight + 10, 10, 10);
+                gc.fillRoundRect(textX - 20, itemY - textHeight + 5, textWidth + 40, textHeight + 10, 10, 10);
 
                 gc.setFill(Color.YELLOW);
                 double arrowX = textX - 50;
-                gc.fillText(">", arrowX, item.getY());
+                gc.fillText(">", arrowX, itemY);
             } else {
                 gc.setFill(Color.WHITE);
             }
 
-            gc.fillText(item.getText(), textX, item.getY());
+            gc.fillText(item.getText(), textX, itemY);
         }
     }
 
@@ -102,15 +117,20 @@ public class MenuState extends GameState {
 
     @Override
     public void mouseMoved(double x, double y) {
+        // Calculate menu item positions dynamically
+        double centerX = Game.gameWidth / 2.0;
+        double centerY = Game.gameHeight / 2.0;
+        double[] yPositions = {centerY - 50, centerY + 50, centerY + 150};
+
         for (int i = 0; i < menuItems.size(); i++) {
             MenuItem item = menuItems.get(i);
 
             double textWidth = TextUtils.measureTextWidth(item.getText(), menuFont);
             double textHeight = TextUtils.measureTextHeight(item.getText(), menuFont);
 
-            double left = item.getX() - textWidth / 2 - 20;
+            double left = centerX - textWidth / 2 - 20;
             double right = left + textWidth + 40;
-            double top = item.getY() - textHeight + 5;
+            double top = yPositions[i] - textHeight + 5;
             double bottom = top + textHeight + 10;
 
             if (x >= left && x <= right && y >= top && y <= bottom) {
@@ -122,15 +142,20 @@ public class MenuState extends GameState {
 
     @Override
     public void mouseClicked(double x, double y) {
+        // Calculate menu item positions dynamically
+        double centerX = Game.gameWidth / 2.0;
+        double centerY = Game.gameHeight / 2.0;
+        double[] yPositions = {centerY - 50, centerY + 50, centerY + 150};
+
         for (int i = 0; i < menuItems.size(); i++) {
             MenuItem item = menuItems.get(i);
 
             double textWidth = TextUtils.measureTextWidth(item.getText(), menuFont);
             double textHeight = TextUtils.measureTextHeight(item.getText(), menuFont);
 
-            double left = item.getX() - textWidth / 2 - 20;
+            double left = centerX - textWidth / 2 - 20;
             double right = left + textWidth + 40;
-            double top = item.getY() - textHeight + 5;
+            double top = yPositions[i] - textHeight + 5;
             double bottom = top + textHeight + 10;
 
             if (x >= left && x <= right && y >= top && y <= bottom) {
