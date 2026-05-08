@@ -1,6 +1,14 @@
 # GooGoo Game Remake
 
-A remake of the classic GooGoo space shooter game built with JavaFX featuring procedurally generated sprites, intelligent enemy AI, and dynamic scoring system.
+Googoo is a remake of an old sinclair spectrum game developed a long time ago. It maintains the game spirit.
+
+This is a  remake of the classic GooGoo space shooter game built with JavaFX featuring procedurally generated sprites, intelligent enemy AI, and dynamic scoring system.
+
+Developed using Vibe-Coding on a MacBook Pro, using Claude-Code and assistance from Gemini.
+
+Developed by: Noam Singer
+
+Spiritual Successor to: GooGoo by Noam Singer, & Raz Shoham (original Sinclair Spectrum game)
 
 ## Game Features
 
@@ -44,7 +52,6 @@ Enemies use bit-flag combinations for complex behaviors:
 - **UP Arrow** - Accelerate
 - **DOWN Arrow** - Decelerate/brake
 - **Mouse Click** - Set navigation target
-- **D** - Toggle debug mode
 - **ESC** - Return to main menu
 
 ## Architecture
