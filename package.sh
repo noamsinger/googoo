@@ -161,11 +161,21 @@ package_app() {
             # Create temporary DMG
             hdiutil create -srcfolder "${APP_BUNDLE_DIR}" -volname "${APP_NAME}" -fs HFS+ -format UDRW "$DMG_TEMP"
 
-            # Mount it
-            MOUNT_DIR=$(hdiutil attach "$DMG_TEMP" | grep "/Volumes/${APP_NAME}" | awk '{print $3}')
+            # Mount it using an explicit mount point
+            MOUNT_DIR="/Volumes/${APP_NAME}"
+            # Detach any leftover mount from a previous failed run
+            hdiutil detach "$MOUNT_DIR" 2>/dev/null || true
+            hdiutil attach "$DMG_TEMP" -mountpoint "$MOUNT_DIR"
 
             # Create Applications symlink
             ln -s /Applications "$MOUNT_DIR/Applications"
+
+            # Set the volume icon using the .app's icns
+            ICNS_FILE="${APP_BUNDLE_DIR}/Contents/Resources/${APP_NAME}.icns"
+            if [ -f "$ICNS_FILE" ]; then
+                cp "$ICNS_FILE" "$MOUNT_DIR/.VolumeIcon.icns"
+                /usr/bin/SetFile -a C "$MOUNT_DIR" 2>/dev/null || true
+            fi
 
             # Unmount
             hdiutil detach "$MOUNT_DIR"
@@ -176,7 +186,14 @@ package_app() {
             # Clean up temp
             rm -f "$DMG_TEMP"
 
-            JPACKAGE_ARGS=(--type dmg)
+            # Set the custom icon on the .dmg file itself
+            if [ -f "$ICNS_FILE" ]; then
+                sips -i "$ICNS_FILE" &>/dev/null || true
+                DeRez -only icns "$ICNS_FILE" > /tmp/googoo_icns.rsrc 2>/dev/null
+                Rez -append /tmp/googoo_icns.rsrc -o "$DMG_FINAL" 2>/dev/null
+                /usr/bin/SetFile -a C "$DMG_FINAL" 2>/dev/null || true
+                rm -f /tmp/googoo_icns.rsrc
+            fi
             ;;
         windows)
             echo "Creating Windows .exe installer..."
