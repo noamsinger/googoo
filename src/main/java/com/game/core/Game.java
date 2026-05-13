@@ -25,6 +25,7 @@ public class Game extends Application {
     public static int gameWidth = WINDOW_WIDTH;  // Start with window dimensions
     public static int gameHeight = WINDOW_HEIGHT;
     public static final String TITLE = "GooGoo Game Remake";
+    public static final String VERSION = "2.1.1";
 
     private static Stage primaryStage;
     private static Canvas canvas;

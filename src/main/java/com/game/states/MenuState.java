@@ -47,6 +47,7 @@ public class MenuState extends GameState {
         menuItems = new ArrayList<>();
         menuItems.add(new MenuItem("Start", 0, 0));
         menuItems.add(new MenuItem("Config", 0, 0));
+        menuItems.add(new MenuItem("About", 0, 0));
         menuItems.add(new MenuItem("Exit", 0, 0));
 
         currentSelection = 0;
@@ -81,7 +82,7 @@ public class MenuState extends GameState {
         // Calculate menu item positions dynamically based on current canvas size
         double centerX = canvasWidth / 2.0;
         double centerY = canvasHeight / 2.0;
-        double[] yPositions = {centerY - 50, centerY + 50, centerY + 150};
+        double[] yPositions = {centerY - 80, centerY, centerY + 80, centerY + 160};
 
         for (int i = 0; i < menuItems.size(); i++) {
             MenuItem item = menuItems.get(i);
@@ -135,7 +136,7 @@ public class MenuState extends GameState {
         // Calculate menu item positions dynamically
         double centerX = Game.gameWidth / 2.0;
         double centerY = Game.gameHeight / 2.0;
-        double[] yPositions = {centerY - 50, centerY + 50, centerY + 150};
+        double[] yPositions = {centerY - 80, centerY, centerY + 80, centerY + 160};
 
         for (int i = 0; i < menuItems.size(); i++) {
             MenuItem item = menuItems.get(i);
@@ -160,7 +161,7 @@ public class MenuState extends GameState {
         // Calculate menu item positions dynamically
         double centerX = Game.gameWidth / 2.0;
         double centerY = Game.gameHeight / 2.0;
-        double[] yPositions = {centerY - 50, centerY + 50, centerY + 150};
+        double[] yPositions = {centerY - 80, centerY, centerY + 80, centerY + 160};
 
         for (int i = 0; i < menuItems.size(); i++) {
             MenuItem item = menuItems.get(i);
@@ -193,6 +194,10 @@ public class MenuState extends GameState {
             case "Config":
                 LOGGER.fine("Opening config");
                 gsm.setState(new ConfigState(gsm));
+                break;
+            case "About":
+                LOGGER.fine("Opening about");
+                gsm.setState(new AboutState(gsm));
                 break;
             case "Exit":
                 LOGGER.fine("Exiting game");

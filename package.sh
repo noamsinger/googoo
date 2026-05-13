@@ -12,10 +12,10 @@ echo ""
 
 # Configuration
 APP_NAME="GooGoo"
-APP_VERSION="1.0-SNAPSHOT"
+APP_VERSION="2.1.1"
 MAIN_CLASS="com.game.core.Game"
 MAIN_JAR="googoo-game-remake-${APP_VERSION}.jar"
-ICON_SOURCE="src/main/resources/images/googoo-game-icon.jpeg"
+ICON_SOURCE="src/main/resources/images/googoo-game-icon.png"
 
 # Directories
 BUILD_DIR="target"
@@ -123,7 +123,7 @@ package_app() {
     # Common jpackage arguments
     JPACKAGE_ARGS=(
         --name "${APP_NAME}"
-        --app-version "1.0"
+        --app-version "2.1.1"
         --input "${BUILD_DIR}"
         --main-jar "${MAIN_JAR}"
         --main-class "${MAIN_CLASS}"
@@ -153,7 +153,7 @@ package_app() {
 
             # Create DMG using hdiutil
             DMG_TEMP="${PACKAGE_DIR}/temp.dmg"
-            DMG_FINAL="${PACKAGE_DIR}/output/${APP_NAME}-1.0.dmg"
+            DMG_FINAL="${PACKAGE_DIR}/output/${APP_NAME}-2.1.1.dmg"
 
             # Remove old DMG if exists
             rm -f "$DMG_TEMP" "$DMG_FINAL"

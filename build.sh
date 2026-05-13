@@ -13,7 +13,7 @@ echo ""
 # Configuration
 APP_NAME="GooGoo"
 MAIN_CLASS="com.game.core.Game"
-ICON_SOURCE="src/main/resources/images/googoo-game-icon.jpeg"
+ICON_SOURCE="src/main/resources/images/googoo-game-icon.png"
 BUILD_DIR="target"
 APP_BUNDLE_DIR="$BUILD_DIR/$APP_NAME.app"
 CONTENTS_DIR="$APP_BUNDLE_DIR/Contents"
@@ -32,7 +32,7 @@ echo ""
 echo "Building with Maven..."
 mvn clean package -DskipTests
 
-if [ ! -f "$BUILD_DIR/googoo-game-remake-1.0-SNAPSHOT.jar" ]; then
+if [ ! -f "$BUILD_DIR/googoo-game-remake-2.1.1.jar" ]; then
     echo "ERROR: Maven build failed - JAR not found"
     exit 1
 fi
@@ -56,9 +56,9 @@ if [ -f "$ICON_SOURCE" ]; then
         ICONSET_DIR="$ICON_DIR/AppIcon.iconset"
         mkdir -p "$ICONSET_DIR"
 
-        # Convert JPEG to PNG first if needed
+        # Round the corners and add alpha using the Swift helper
         TEMP_PNG="$ICON_DIR/temp_icon.png"
-        sips -s format png "$ICON_SOURCE" --out "$TEMP_PNG" &> /dev/null
+        cp "$ICON_SOURCE" "$TEMP_PNG"
 
         # Generate different sizes from the PNG
         sips -z 16 16     "$TEMP_PNG" --out "$ICONSET_DIR/icon_16x16.png" &> /dev/null
@@ -89,7 +89,7 @@ echo ""
 
 # Copy JAR and dependencies to Resources
 echo "Copying application files..."
-cp "$BUILD_DIR/googoo-game-remake-1.0-SNAPSHOT.jar" "$RESOURCES_DIR/"
+cp "$BUILD_DIR/googoo-game-remake-2.1.1.jar" "$RESOURCES_DIR/"
 
 # Copy all dependencies from Maven
 mvn dependency:copy-dependencies -DoutputDirectory="$RESOURCES_DIR/lib" -DincludeScope=runtime &> /dev/null
@@ -108,7 +108,7 @@ APP_NAME="GooGoo"
 LOCK_FILE="/tmp/googoo-game.lock"
 BUNDLE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 RESOURCES_DIR="$BUNDLE_DIR/Resources"
-MAIN_JAR="$RESOURCES_DIR/googoo-game-remake-1.0-SNAPSHOT.jar"
+MAIN_JAR="$RESOURCES_DIR/googoo-game-remake-2.1.1.jar"
 
 # Function to check if process is running
 is_running() {
@@ -218,9 +218,9 @@ cat > "$CONTENTS_DIR/Info.plist" << PLIST_EOF
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>2.1.1</string>
     <key>CFBundleVersion</key>
-    <string>1.0</string>
+    <string>2.1.1</string>
     <key>LSMinimumSystemVersion</key>
     <string>10.14</string>
     <key>LSUIElement</key>
@@ -235,25 +235,12 @@ PLIST_EOF
 echo "✓ Info.plist created"
 echo ""
 
-# Set the icon for the .app bundle itself (for Finder)
-echo "Setting Finder icon..."
-if [ -f "$RESOURCES_DIR/$APP_NAME.icns" ]; then
-    # Copy the icns file to a special Icon\r file inside the app bundle
-    cp "$RESOURCES_DIR/$APP_NAME.icns" "$APP_BUNDLE_DIR/Icon"$'\r'
+# Create PkgInfo file
+echo -n "APPL????" > "$CONTENTS_DIR/PkgInfo"
 
-    # Set the custom icon attribute bit
-    /usr/bin/SetFile -a C "$APP_BUNDLE_DIR" 2>/dev/null || echo "  (SetFile not available, icon may not show in Finder)"
-
-    # Hide the Icon\r file
-    /usr/bin/SetFile -a V "$APP_BUNDLE_DIR/Icon"$'\r' 2>/dev/null || true
-
-    # Refresh Finder
-    touch "$APP_BUNDLE_DIR"
-
-    echo "✓ Finder icon set"
-else
-    echo "WARNING: Icon file not found, skipping Finder icon"
-fi
+# Ad-hoc code sign the app bundle so macOS renders its icon
+echo "Code signing app bundle..."
+codesign --force --deep --sign - "$APP_BUNDLE_DIR" 2>/dev/null && echo "✓ Ad-hoc signed" || echo "  (codesign not available, skipping)"
 echo ""
 
 echo "========================================="
