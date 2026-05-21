@@ -418,7 +418,7 @@ public class AboutState extends GameState {
             "",
             "A space shooter built with JavaFX, featuring procedurally",
             "generated sprites, intelligent enemy AI, and a dynamic",
-            "scoring system.",
+            "experience system.",
             "",
             "Developed using vibe-coding on a MacBook Pro,",
             "with Claude Code and assistance from Gemini.",

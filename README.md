@@ -2,7 +2,7 @@
 
 Googoo is a remake of an old sinclair spectrum game developed a long time ago. It maintains the game spirit.
 
-This is a  remake of the classic GooGoo space shooter game built with JavaFX featuring procedurally generated sprites, intelligent enemy AI, and dynamic scoring system.
+This is a remake of the classic GooGoo space shooter game built with JavaFX featuring procedurally generated sprites, intelligent enemy AI, and dynamic scoring system.
 
 Developed using Vibe-Coding on a MacBook Pro, using Claude-Code and assistance from Gemini.
 
@@ -14,18 +14,19 @@ Spiritual Successor to: GooGoo by Noam Singer, & Raz Shoham (original Sinclair S
 
 ### Gameplay
 - **Player-controlled spaceship** with smooth physics-based movement
-- **Gem collection system** with rainbow-colored score display
+- **Gem collection system** with rainbow-colored EXP display
 - **Heart power-ups** with time-limited effectiveness
 - **16 unique enemy types** with AI behavior combinations
-- **Three game modes**: Shield Level, Lives, or Live Forever
+- **Two game modes**: Shield Level or Lives
 - **Wormhole mechanics** for strategic escapes
 - **Dynamic difficulty** through enemy behavior flags
 - **Level progression** with automatic save/resume (Shield and Lives modes)
+- **Mid-game shop** to upgrade ships, weapons, fire modes, and shields
 
 ### Visual Design
 - **Procedurally generated sprites** - all enemy sprites created with Java AWT Graphics2D
 - **Smooth animations** - 16-frame sprite sheets for all entities
-- **Rainbow score display** - cycles through 6 colors every 10 seconds
+- **Rainbow EXP display** - cycles through 6 colors every 10 seconds
 - **Fade-in effects** - all spawning objects fade in over 1 second
 - **Rich color palettes** - unique themes for each enemy type
 - **Space-themed backgrounds** - galaxy background on menu and config screens
@@ -38,6 +39,14 @@ Enemies use bit-flag combinations for complex behaviors:
 - **0x04 (Prediction)**: Targets predicted position 0.1-1.5s ahead with roll estimation
 - **0x08 (Random Speed)**: Unique random speeds (0.5-1.1× max) with starship's acceleration/deceleration
 
+### Shop System
+Press **S** during gameplay to open the mid-game shop (pauses the game). Spend EXP to upgrade:
+- **Starships** (4 ships): Standard → faster/more agile variants
+- **Fire Modes** (4 modes): Manual → Semi-Auto → Auto → Vulkan
+- **Weapons** (2 types): Bullet (standard) or Torpedo (homing, 5s life)
+- **Shields**: Hit Shield (absorbs N hits) or Timed Shield (time-limited protection)
+- **Lives / Shield restore**: Buy extra lives (Lives mode) or restore 5% shield (Shield mode)
+
 ## Controls
 
 ### Menu Navigation
@@ -48,10 +57,12 @@ Enemies use bit-flag combinations for complex behaviors:
 - **Mouse** - Hover and click menu items
 
 ### Gameplay
-- **LEFT/RIGHT Arrow Keys** - Roll and turn the spaceship
+- **Right-click / Right-drag** - Set navigation target (mouse steering)
+- **LEFT/RIGHT Arrow Keys** - Roll and turn the spaceship (ballistic mode)
 - **UP Arrow** - Accelerate
 - **DOWN Arrow** - Decelerate/brake
-- **Mouse Click** - Set navigation target
+- **Right-click or SPACE** - Fire bullet/torpedo
+- **S** - Open mid-game shop (pauses game)
 - **ESC** - Return to main menu
 
 ## Architecture
@@ -60,9 +71,13 @@ Enemies use bit-flag combinations for complex behaviors:
 - **Game.java** - Main game loop and window management using JavaFX
 - **GameStateManager.java** - Manages game states (menu, play, config)
 - **GameState.java** - Abstract base class for all game states
-- **MenuState.java** - Main menu with Start, Config, Exit options
+- **MenuState.java** - Main menu with Start, Instructions, Config, About, Exit options
 - **PlayState.java** - Main gameplay state with all game mechanics
+- **ShopState.java** - Mid-game shop overlay (pauses gameplay)
+- **InstructionsState.java** - Scrollable instructions screen with animated background
+- **PauseState.java** - Pause overlay
 - **ConfigState.java** - Configuration options
+- **AboutState.java** - About screen
 
 ### Sprite Generators
 - **AlienSpaceshipSpriteGenerator.java** - Enemy 0 (UFO)
@@ -72,6 +87,7 @@ Enemies use bit-flag combinations for complex behaviors:
 - **AlienSpaceship6SpriteGenerator.java** - Enemy 6 (Crystalline)
 - **FireballSpriteGenerator.java** - Enemy 15 (Fireball)
 - **EnemySpriteLoader.java** - Sprite sheet loading and caching
+- **WeaponSpriteLoader.java** - Weapon sprite loading (bullets, torpedoes)
 
 ### UI Components
 - **MenuItem.java** - Menu item rendering
@@ -133,24 +149,18 @@ mvn javafx:run    # Run the application
   - Hearts add one additional life (no cap)
   - Game over when lives reach 0
   - Level selection available for reached levels
-  
-- **Live Forever**: Invincible practice mode
-  - No damage from enemies
-  - No game over
-  - Hearts have no effect
-  - Only level 1 available (no progression tracking)
 
-### Scoring
-- Collect gems to increase score
-- Score displayed in large rainbow text (10-second color cycle)
+### Experience Points
+- Collect gems to increase EXP
+- EXP displayed in large rainbow text (10-second color cycle)
 - Color sequence: Red → Magenta → Blue → Cyan → Green → Yellow → Red
+- Spend EXP in the shop to upgrade your ship, weapons, and defenses
 
 ### Hearts
 - Spawn after collecting 4 gems
 - Last 30 seconds with visual dimming (100% → 10%)
 - **Shield Level Mode**: Restores shield based on remaining time (more effective if collected early)
 - **Lives Mode**: Adds 1 life (unlimited maximum)
-- **Live Forever Mode**: No effect
 
 ### Enemy Behavior
 - All enemies chase the player at varying speeds

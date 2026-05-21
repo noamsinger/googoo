@@ -6,20 +6,21 @@ A 2D space shooter game built with JavaFX featuring a player-controlled spaceshi
 ## Core Mechanics
 
 ### Player Spaceship
-- **Movement**: Arrow keys control rotation and acceleration
+- **Movement**: Arrow keys control rotation and acceleration (ballistic mode)
   - Left/Right: Roll and turn
   - Up: Accelerate
   - Down: Decelerate
+- **Mouse Steering**: Right-click or right-drag to set a navigation target
 - **Speed**: Starts at 60% of max speed
 - **Rotation**: Smooth angular velocity-based turning
 - **Rolling**: Visual tilt effect when turning
-- **Shooting**: Space bar fires projectiles
+- **Shooting**: SPACE or right-click fires a bullet or torpedo (one active at a time)
+- **Shop**: Press S to open mid-game shop (pauses gameplay)
 - **Shield/Lives**: Two game modes available
 
 ### Game Modes
 1. **Shield Level Mode**: Player has shield percentage (100%), hearts restore shield based on remaining time
 2. **Lives Mode**: Player starts with 3 lives, can collect unlimited lives via hearts
-3. **Live Forever Mode**: Invincible practice mode with no damage or game over
 
 ### Level Progression
 
@@ -69,9 +70,9 @@ When starting at level K > 1:
 - Level 10: 5 black hole pairs (schemes 0-4), 5 enemies (types from appearance order)
 - Level 33: 16 black hole pairs (schemes 0-15), 17 enemies (full cycle + type 0 again)
 
-### Scoring System
-- **Gem Collection**: Score increases by collecting gems
-- **Score Display**: Large rainbow-colored text (48pt font)
+### Experience System
+- **Gem Collection**: EXP increases by collecting gems
+- **EXP Display**: Large rainbow-colored text (48pt font)
   - Color cycles through: Red → Magenta → Blue → Cyan → Green → Yellow → Red
   - Complete cycle takes 10 seconds
   - Smooth interpolation between colors
@@ -82,7 +83,7 @@ When starting at level K > 1:
 - **Spawn Rate**: 4-8 gems active at any time
 - **Distance Constraint**: New gems spawn at least 200 pixels from existing gems
 - **Fade-in**: 1 second fade-in animation when appearing
-- **Collection**: Increases score by 1
+- **Collection**: Increases EXP by 1
 
 #### Hearts
 - **Spawn Condition**: Appears after collecting 4 gems
@@ -158,7 +159,7 @@ Enemies use bit-flag system for behavior combinations:
   - Fireball: Red/yellow
 - **Gems**: Colorful collectibles
 - **Hearts**: Red/pink health items
-- **Score**: Rainbow cycling colors
+- **EXP**: Rainbow cycling colors
 
 ### Animations
 - All sprites: 16-frame animation loops in 4x4 sprite sheets
@@ -172,12 +173,55 @@ Enemies use bit-flag system for behavior combinations:
 - Light gray color (RGB: 180, 180, 180)
 - Two-phase animation: expansion then fade-out
 
+### Shop System
+
+Opened by pressing **S** during gameplay; pauses the game and pushes `ShopState` onto the state stack. Purchases cost EXP.
+
+#### Starships (4 ships)
+| Ship | Cost | Description |
+|------|------|-------------|
+| Ship 1 | 0 (default) | Standard |
+| Ship 2 | 50 EXP | 2× speed, 2× acceleration |
+| Ship 3 | 80 EXP | 5× turn speed (tracking), 2× (keys) |
+| Ship 4 | 150 EXP | 5× turn speed + 4× burst |
+
+#### Fire Modes (4 modes)
+| Mode | Cost | Description |
+|------|------|-------------|
+| Manual | 0 (default) | Click to fire |
+| Semi-Auto | 30 EXP | Click, 0.3s rate |
+| Auto | 75 EXP | Auto-fire at 0.3s interval |
+| Vulkan | 150 EXP | Auto-fire at 0.1s interval |
+
+#### Weapons (2 types)
+| Weapon | Cost | Description |
+|--------|------|-------------|
+| Bullet | 0 (default) | Standard projectile |
+| Torpedo | 80 EXP | Homing, 5s lifetime |
+
+#### Shields
+- **Hit Shield**: 40 EXP → +5 hits of protection; stackable
+- **Timed Shield**: 60 EXP → +60 seconds of protection; stackable
+- Only one shield type can be active at a time; switch for free in the shop
+
+#### Mode-specific options
+- **Lives mode**: Extra Life for 10 EXP (+1 life)
+- **Shield mode**: Shield +5% for 5 EXP (capped at 100%)
+
+#### Actions
+- **Continue**: Resume the game
+- **Restart Level**: Return to the start of the current level
+
 ## Technical Architecture
 
 ### State Management
-- **MenuState**: Main menu navigation
+- **MenuState**: Main menu navigation (Start, Instructions, Config, About, Exit)
 - **PlayState**: Active gameplay
+- **ShopState**: Mid-game shop overlay (pauses gameplay, pushed onto state stack)
+- **PauseState**: Pause overlay
+- **InstructionsState**: Scrollable instructions with animated flying objects background
 - **ConfigState**: Configuration options
+- **AboutState**: About screen
 
 ### Sprite Generation
 - Procedurally generated sprites using Java AWT Graphics2D
@@ -432,7 +476,7 @@ else if (time < 1.0)
     currentScale = 3.0 - (3.0 - normalScale) × progress  // Shrink to normal
 ```
 
-### Score Rainbow Animation
+### EXP Rainbow Animation
 
 **Color Cycle:**
 6 colors cycling over 10 seconds total:
@@ -446,8 +490,8 @@ else if (time < 1.0)
 **Linear Interpolation:**
 ```
 segmentDuration = 10.0 / 6.0 = 1.6667 seconds
-segmentIndex = floor(scoreColorTimer / segmentDuration) mod 6
-segmentProgress = (scoreColorTimer mod segmentDuration) / segmentDuration
+segmentIndex = floor(expColorTimer / segmentDuration) mod 6
+segmentProgress = (expColorTimer mod segmentDuration) / segmentDuration
 
 r = r1 + (r2 - r1) × segmentProgress
 g = g1 + (g2 - g1) × segmentProgress
@@ -508,11 +552,6 @@ if (LIVES mode and immune)
     pulseScale = 0.9 + sin(pulseProgress × 2π) × 0.1  // Scale: 0.9-1.1
     circleRadius = spaceship.size × 1.5 × pulseScale
     color = Blue with 40% opacity
-else if (LIVE_FOREVER mode)
-    pulseProgress = (gameTime mod 2.0) / 2.0  // 2 second cycle
-    pulseScale = 0.95 + sin(pulseProgress × 2π) × 0.05  // Scale: 0.95-1.05
-    circleRadius = spaceship.size × 1.5 × pulseScale
-    color = Golden yellow with 30% opacity
 ```
 
 ### Animation Timing

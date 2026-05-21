@@ -34,7 +34,7 @@ public class PlayState extends GameState {
 
     // Game constants
     private static final int STAR_COUNT = 400;
-    private static final double SCORE_COLOR_CYCLE_DURATION = 10.0; // seconds
+    private static final double EXP_COLOR_CYCLE_DURATION = 10.0; // seconds
     private static final double COLLISION_DAMAGE_MULTIPLIER = 10.0;
 
     // Physics and collision constants
@@ -82,13 +82,20 @@ public class PlayState extends GameState {
     private List<Enemy> enemies;
     private List<EnemyExplosion> enemyExplosions;
     private List<Gem> gems;
-    private int score = 0;
-    private double scoreColorTimer = 0.0; // Timer for color morphing
-    private int gemsCollectedSinceLastHeart = 0;
+    private List<Bullet> bullets;
+    private double bulletCooldown = 0.0;
+    private static final double BULLET_COOLDOWN_TIME = 0.3;
+    private int activeWeaponMode = 0; // 0=manual, 1=semi-auto, 2=auto, 3=vulkan
+    private int activeWeapon = 0; // 0=bullet, 1=torpedo
+    private boolean[] ownedWeaponModes = {true, false, false, false};
+    private boolean[] ownedWeapons = {true, false};
+    private int exp = 0;
+    private double expColorTimer = 0.0; // Timer for color morphing
+    private boolean heartSpawnedThisLevel = false;
     private Heart heart = null;
 
     // Game mode enum
-    private enum GameMode {
+    public enum GameMode {
         SHIELD,        // Shield percentage mode (1-10% damage per hit)
         LIVES          // Lives mode with 5-second immunity after losing a life
     }
@@ -98,6 +105,14 @@ public class PlayState extends GameState {
     private int remainingLives = 3;
     private boolean isImmune = false; // Immunity after losing a life in 3-life mode
     private double immunityTimer = 0.0;
+
+    // Shop shields
+    private int hitShieldRemaining = 0;
+    private double timedShieldRemaining = 0.0;
+    private String activeShieldType = "none"; // "none", "hit", "timed"
+
+    // Ships
+    private boolean[] ownedShips = {true, false, false, false, false, false, false, false};
 
     // Starship explosion
     private StarshipExplosion starshipExplosion = null;
@@ -198,18 +213,24 @@ public class PlayState extends GameState {
 
         if (levelProgress != null) {
             // Restore saved progress
-            score = levelProgress.getStartingScore();
+            exp = levelProgress.getStartingExp();
             remainingLives = levelProgress.getStartingLives();
             spaceship.shieldPercentage = levelProgress.getStartingShield();
-            LOGGER.fine("Restored progress for level " + currentLevel + ": score=" + score +
+            hitShieldRemaining = levelProgress.getHitShieldRemaining();
+            timedShieldRemaining = levelProgress.getTimedShieldRemaining();
+            spaceship.shipType = levelProgress.getShipType();
+            ownedShips = levelProgress.getOwnedShips();
+            LOGGER.fine("Restored progress for level " + currentLevel + ": exp=" + exp +
                        ", lives=" + remainingLives + ", shield=" + spaceship.shieldPercentage);
         } else {
             // Starting fresh - record initial state for this level
-            score = 0;
+            exp = 0;
             remainingLives = 3;
             spaceship.shieldPercentage = 100.0;
             progressManager.recordLevelProgress(currentLevel, settingsGameType,
-                                               remainingLives, spaceship.shieldPercentage, score);
+                                               remainingLives, spaceship.shieldPercentage, exp,
+                                               hitShieldRemaining, timedShieldRemaining,
+                                               spaceship.shipType, ownedShips);
             LOGGER.fine("Starting fresh at level " + currentLevel);
         }
 
@@ -246,6 +267,7 @@ public class PlayState extends GameState {
 
         // Initialize gems list
         gems = new ArrayList<>();
+        bullets = new ArrayList<>();
         spawnInitialGems();
 
         LOGGER.info("Starting at level " + currentLevel + " with " + blackHoles.size() / 2 + " black hole pairs and " + enemies.size() + " enemies");
@@ -310,9 +332,9 @@ public class PlayState extends GameState {
     @Override
     public void update(double deltaTime) {
         gameTime += deltaTime;
-        scoreColorTimer += deltaTime;
-        if (scoreColorTimer >= SCORE_COLOR_CYCLE_DURATION) {
-            scoreColorTimer -= SCORE_COLOR_CYCLE_DURATION; // Reset after 10 seconds
+        expColorTimer += deltaTime;
+        if (expColorTimer >= EXP_COLOR_CYCLE_DURATION) {
+            expColorTimer -= EXP_COLOR_CYCLE_DURATION; // Reset after 10 seconds
         }
 
         // Update starship explosion if active
@@ -335,6 +357,19 @@ public class PlayState extends GameState {
             }
         }
 
+        // Update timed shield
+        if (timedShieldRemaining > 0 && activeShieldType.equals("timed")) {
+            timedShieldRemaining -= deltaTime;
+            if (timedShieldRemaining <= 0) {
+                timedShieldRemaining = 0;
+                if (hitShieldRemaining > 0) {
+                    activeShieldType = "hit";
+                } else {
+                    activeShieldType = "none";
+                }
+            }
+        }
+
         // Don't update level progression if game is over
         if (!gameOver && starshipExplosion == null) {
             // Update level timer
@@ -344,13 +379,16 @@ public class PlayState extends GameState {
             currentLevel++;
             showLevelMessage = true;
             levelMessageTimer = 0.0;
+            heartSpawnedThisLevel = false;
 
             // Record progress for new level
             GameSettings settings = GameSettings.getInstance();
             ProgressManager progressManager = ProgressManager.getInstance();
             progressManager.recordLevelProgress(currentLevel, settings.getGameType(),
-                                               remainingLives, spaceship.shieldPercentage, score);
-            LOGGER.fine("Recorded progress for level " + currentLevel + ": score=" + score +
+                                               remainingLives, spaceship.shieldPercentage, exp,
+                                               hitShieldRemaining, timedShieldRemaining,
+                                               spaceship.shipType, ownedShips);
+            LOGGER.fine("Recorded progress for level " + currentLevel + ": exp=" + exp +
                        ", lives=" + remainingLives + ", shield=" + spaceship.shieldPercentage);
 
             // On even levels, add a black hole pair
@@ -487,20 +525,19 @@ public class PlayState extends GameState {
 
             if (distance < collisionDistance) {
                 // Gem collected!
-                score++;
-                gemsCollectedSinceLastHeart++;
+                exp++;
                 gems.remove(i);
-
-                // Spawn heart after 4 gems collected if no heart is visible
-                if (gemsCollectedSinceLastHeart >= 4 && heart == null) {
-                    spawnHeart();
-                    gemsCollectedSinceLastHeart = 0;
-                }
             }
         }
 
         // Maintain 4-8 gems on screen
         maintainGems();
+
+        // Spawn heart once at mid-level (30 seconds)
+        if (heart == null && !heartSpawnedThisLevel && levelTimer >= LEVEL_DURATION / 2) {
+            spawnHeart();
+            heartSpawnedThisLevel = true;
+        }
 
         // Update heart if present
         if (heart != null) {
@@ -560,6 +597,42 @@ public class PlayState extends GameState {
             }
         }
 
+        // Auto-fire weapons
+        bulletCooldown = Math.max(0, bulletCooldown - deltaTime);
+        if (!gameOver && starshipExplosion == null && !spaceship.inWormhole) {
+            double fireRate = 0;
+            if (activeWeaponMode == 2) fireRate = 0.3;
+            else if (activeWeaponMode == 3) fireRate = 0.1;
+
+            if (fireRate > 0 && bulletCooldown <= 0) {
+                fireBullet();
+                bulletCooldown = fireRate;
+            }
+        }
+
+        // Update bullets
+        for (int i = bullets.size() - 1; i >= 0; i--) {
+            Bullet bullet = bullets.get(i);
+            bullet.update(deltaTime, enemies);
+            if (bullet.isOffScreen() || bullet.isExpired()) {
+                bullets.remove(i);
+                continue;
+            }
+            for (int j = enemies.size() - 1; j >= 0; j--) {
+                Enemy enemy = enemies.get(j);
+                double dx = bullet.x - enemy.x;
+                double dy = bullet.y - enemy.y;
+                double distance = Math.sqrt(dx * dx + dy * dy);
+                double enemyRadius = ENEMY_RADIUS * getResolutionScale();
+                if (distance < enemyRadius + bullet.size / 2) {
+                    enemies.remove(j);
+                    enemyExplosions.add(new EnemyExplosion(enemy.x, enemy.y, enemy));
+                    bullets.remove(i);
+                    break;
+                }
+            }
+        }
+
         // Check for collisions between spaceship and enemies
         if (!spaceship.inWormhole && !gameOver && starshipExplosion == null) {
             double spaceshipRadius = spaceship.size / 2.0;
@@ -579,6 +652,23 @@ public class PlayState extends GameState {
 
                     if (distance < spaceshipRadius + enemyRadius) {
                         // Collision detected!
+
+                        // Check if active shield absorbs the hit
+                        if (activeShieldType.equals("hit") && hitShieldRemaining > 0) {
+                            hitShieldRemaining--;
+                            if (hitShieldRemaining <= 0 && timedShieldRemaining > 0) {
+                                activeShieldType = "timed";
+                            } else if (hitShieldRemaining <= 0) {
+                                activeShieldType = "none";
+                            }
+                            enemies.remove(i);
+                            enemyExplosions.add(new EnemyExplosion(enemy.x, enemy.y, enemy));
+                            continue;
+                        } else if (activeShieldType.equals("timed") && timedShieldRemaining > 0) {
+                            enemies.remove(i);
+                            enemyExplosions.add(new EnemyExplosion(enemy.x, enemy.y, enemy));
+                            continue;
+                        }
 
                         if (gameMode == GameMode.SHIELD) {
                             // Shield mode: calculate energy-based damage
@@ -664,6 +754,7 @@ public class PlayState extends GameState {
         renderSpaceship(gc);
         renderGems(gc);
         renderEnemies(gc);
+        renderBullets(gc);
         renderHeart(gc);
         renderEnemyExplosions(gc);
         renderStarshipExplosion(gc);
@@ -742,6 +833,68 @@ public class PlayState extends GameState {
                 );
             }
         }
+
+        // Shop shield indicator with dashed circle
+        if (hitShieldRemaining > 0 || timedShieldRemaining > 0) {
+            double circleRadius = spaceship.size * 1.8;
+            double pulseProgress = (gameTime % 1.0);
+            double pulseScale = 0.95 + Math.sin(pulseProgress * Math.PI * 2) * 0.05;
+            double actualRadius = circleRadius * pulseScale;
+
+            double percentage;
+            if (hitShieldRemaining > 0) {
+                percentage = Math.min(1.0, hitShieldRemaining / 10.0);
+            } else {
+                percentage = Math.min(1.0, timedShieldRemaining / 60.0);
+            }
+
+            // Green at 100% (10+ hits), shifting to red at 10% (1 hit)
+            int r = (int) (255 * (1.0 - percentage));
+            int g = (int) (255 * percentage);
+            Color shieldColor = Color.rgb(r, g, 0, 0.7);
+
+            gc.setStroke(shieldColor);
+            gc.setLineWidth(2.5);
+
+            if (percentage >= 1.0) {
+                // Solid circle at 10+ hits
+                gc.setLineDashes(0);
+            } else {
+                double maxDash = 20.0;
+                double dashLen = Math.max(2.0, maxDash * percentage);
+                double gapLen = Math.max(1.0, maxDash * (1.0 - percentage));
+                gc.setLineDashes(dashLen, gapLen);
+            }
+
+            gc.strokeOval(
+                spaceship.x - actualRadius,
+                spaceship.y - actualRadius,
+                actualRadius * 2,
+                actualRadius * 2
+            );
+            gc.setLineDashes(0);
+        }
+
+        // Shield mode percentage ring
+        if (gameMode == GameMode.SHIELD && !GameSettings.getInstance().isDebugMode() && !(gameMode == GameMode.LIVES && isImmune)) {
+            double circleRadius = spaceship.size * 1.5;
+            double percentage = spaceship.shieldPercentage / 100.0;
+            double maxDash = 20.0;
+            double dashLen = Math.max(2.0, maxDash * percentage);
+            double gapLen = Math.max(1.0, maxDash * (1.0 - percentage));
+
+            Color ringColor = ColorMorphing.getHealthColor(spaceship.shieldPercentage);
+            gc.setStroke(Color.color(ringColor.getRed(), ringColor.getGreen(), ringColor.getBlue(), 0.6));
+            gc.setLineWidth(2.0);
+            gc.setLineDashes(dashLen, gapLen);
+            gc.strokeOval(
+                spaceship.x - circleRadius,
+                spaceship.y - circleRadius,
+                circleRadius * 2,
+                circleRadius * 2
+            );
+            gc.setLineDashes(0);
+        }
     }
 
     private void renderGems(GraphicsContext gc) {
@@ -753,6 +906,12 @@ public class PlayState extends GameState {
     private void renderEnemies(GraphicsContext gc) {
         for (Enemy enemy : enemies) {
             enemy.render(gc);
+        }
+    }
+
+    private void renderBullets(GraphicsContext gc) {
+        for (Bullet bullet : bullets) {
+            bullet.render(gc);
         }
     }
 
@@ -777,7 +936,7 @@ public class PlayState extends GameState {
     private void renderUI(GraphicsContext gc) {
         renderLevelMessage(gc);
         renderDebugMessage(gc);
-        renderScore(gc);
+        renderExp(gc);
         renderStatus(gc);
     }
 
@@ -824,7 +983,7 @@ public class PlayState extends GameState {
         gc.fillText(debugMessageText, centerX, centerY);
     }
 
-    private void renderScore(GraphicsContext gc) {
+    private void renderExp(GraphicsContext gc) {
         // Render debug info if debug mode is active (top left corner)
         if (GameSettings.getInstance().isDebugMode()) {
             gc.setFill(Color.rgb(0, 255, 255));
@@ -839,14 +998,14 @@ public class PlayState extends GameState {
             gc.fillText(speedText, textX, textY + 30);
         }
 
-        // Render score at top right corner with color morphing
-        Color scoreColor = ColorMorphing.getRainbowColor(scoreColorTimer, SCORE_COLOR_CYCLE_DURATION);
-        gc.setFill(scoreColor);
+        // Render EXP at top right corner with color morphing
+        Color expColor = ColorMorphing.getRainbowColor(expColorTimer, EXP_COLOR_CYCLE_DURATION);
+        gc.setFill(expColor);
         gc.setFont(javafx.scene.text.Font.font("Arial", javafx.scene.text.FontWeight.NORMAL, 48));
-        String scoreText = "Score: " + score;
-        double scoreTextX = Game.gameWidth - 250;
-        double scoreTextY = 80;
-        gc.fillText(scoreText, scoreTextX, scoreTextY);
+        String expText = "EXP: " + exp;
+        double expTextX = Game.gameWidth - 250;
+        double expTextY = 80;
+        gc.fillText(expText, expTextX, expTextY);
     }
 
     private void renderStatus(GraphicsContext gc) {
@@ -881,11 +1040,7 @@ public class PlayState extends GameState {
     public void keyPressed(KeyCode key) {
         LOGGER.fine("PlayState keyPressed: " + key);
         if (key == KeyCode.ESCAPE) {
-            LOGGER.fine("ESC pressed - returning to menu");
-            Game.setFullscreen(false);
-            LOGGER.fine("After setFullscreen(false) - WINDOW_WIDTH=" + Game.WINDOW_WIDTH + ", WINDOW_HEIGHT=" + Game.WINDOW_HEIGHT);
-            gsm.setState(new MenuState(gsm));
-            LOGGER.fine("MenuState set");
+            gsm.pushState(new PauseState(gsm));
         } else if (key == KeyCode.D && keyShiftPressed) {
             // Toggle debug mode with Shift+D
             GameSettings settings = GameSettings.getInstance();
@@ -904,25 +1059,10 @@ public class PlayState extends GameState {
                 setGlobalLogLevel(Level.INFO);
                 LOGGER.info("Debug mode disabled - log level set to INFO");
             }
-        } else if (key == KeyCode.L && keyShiftPressed) {
-            // Cycle through game modes with Shift+L: SHIELD -> LIVES -> SHIELD
-            if (gameMode == GameMode.SHIELD) {
-                gameMode = GameMode.LIVES;
-                remainingLives = 3;
-                isImmune = false;
-                immunityTimer = 0.0;
-                debugMessageText = "Lives Mode";
-            } else {
-                gameMode = GameMode.SHIELD;
-                spaceship.shieldPercentage = 100.0;
-                debugMessageText = "Shield Mode";
-            }
-
-            showDebugMessage = true;
-            debugMessageTimer = 0.0;
-            LOGGER.info("Game mode changed to: " + gameMode);
         } else if (key == KeyCode.SHIFT) {
             keyShiftPressed = true;
+        } else if ((key == KeyCode.PLUS || key == KeyCode.EQUALS) && GameSettings.getInstance().isDebugMode()) {
+            exp += 10;
         } else if (key == KeyCode.UP) {
             keyUpPressed = true;
         } else if (key == KeyCode.DOWN) {
@@ -931,6 +1071,10 @@ public class PlayState extends GameState {
             keyLeftPressed = true;
         } else if (key == KeyCode.RIGHT) {
             keyRightPressed = true;
+        } else if (key == KeyCode.SPACE) {
+            fireBullet();
+        } else if (key == KeyCode.S && !gameOver && starshipExplosion == null) {
+            gsm.pushState(new ShopState(gsm, this));
         }
     }
 
@@ -953,7 +1097,6 @@ public class PlayState extends GameState {
     public void mouseClicked(double x, double y) {
         targetX = x;
         targetY = y;
-        LOGGER.fine("Target set to: " + x + ", " + y);
     }
 
     @Override
@@ -976,7 +1119,158 @@ public class PlayState extends GameState {
         mousePressed = false;
     }
 
+    @Override
+    public void mouseRightPressed(double x, double y) {
+        fireBullet();
+    }
+
+    private void fireBullet() {
+        if (bulletCooldown > 0 || gameOver || starshipExplosion != null || spaceship.inWormhole) return;
+        double bulletSpeed = spaceship.maxSpeed * 2;
+        double bx = spaceship.x + Math.cos(spaceship.angle) * spaceship.size;
+        double by = spaceship.y + Math.sin(spaceship.angle) * spaceship.size;
+
+        int spriteType;
+        boolean isTorpedo = (activeWeapon == 1);
+
+        if (isTorpedo) {
+            spriteType = 2; // blue plasma
+        } else {
+            spriteType = 1; // orange fireball
+        }
+
+        Bullet bullet = new Bullet(bx, by, spaceship.angle, bulletSpeed, spriteType);
+        if (isTorpedo) {
+            bullet.maxLife = 5.0;
+            bullet.targetEnemy = bullet.pickTorpedoTarget(enemies);
+        }
+        bullets.add(bullet);
+
+        double cooldown = (activeWeaponMode == 3) ? 0.1 : BULLET_COOLDOWN_TIME;
+        bulletCooldown = cooldown;
+    }
+
+    // Shop API
+    public int getExp() { return exp; }
+    public void spendExp(int amount) { exp -= amount; }
+    public GameMode getGameMode() { return gameMode; }
+    public int getRemainingLives() { return remainingLives; }
+    public double getShieldPercentage() { return spaceship.shieldPercentage; }
+    public int getHitShieldRemaining() { return hitShieldRemaining; }
+    public double getTimedShieldRemaining() { return timedShieldRemaining; }
+
+    public void addLife() { remainingLives++; }
+    public void addHitShield(int hits) { hitShieldRemaining += hits; }
+    public void addTimedShield(double seconds) { timedShieldRemaining += seconds; }
+    public void addShieldPercentage(double amount) {
+        spaceship.shieldPercentage = Math.min(100.0, spaceship.shieldPercentage + amount);
+    }
+
+    public int getShipType() { return spaceship.shipType; }
+    public void setShipType(int type) { spaceship.shipType = type; }
+    public boolean[] getOwnedShips() { return ownedShips; }
+    public void buyShip(int type) { if (type >= 1 && type <= 8) ownedShips[type - 1] = true; }
+    public String getActiveShieldType() { return activeShieldType; }
+    public void setActiveShieldType(String type) { activeShieldType = type; }
+    public int getActiveWeaponMode() { return activeWeaponMode; }
+    public void setActiveWeaponMode(int mode) { activeWeaponMode = mode; }
+    public int getActiveWeapon() { return activeWeapon; }
+    public void setActiveWeapon(int weapon) { activeWeapon = weapon; }
+    public boolean[] getOwnedWeaponModes() { return ownedWeaponModes; }
+    public void buyWeaponMode(int mode) { if (mode >= 0 && mode < 4) ownedWeaponModes[mode] = true; }
+    public boolean[] getOwnedWeapons() { return ownedWeapons; }
+    public void buyWeapon(int type) { if (type >= 0 && type < 2) ownedWeapons[type] = true; }
+
     private enum FadeState { FADE_IN, VISIBLE, FADE_OUT, DONE }
+
+    private class Bullet {
+        double x, y, dx, dy;
+        double size = 40.0 * getResolutionScale();
+        int weaponType = 1;
+        int frameIndex = 0;
+        double frameTimer = 0;
+        double lifeTimer = 0;
+        double maxLife = -1;
+        Enemy targetEnemy = null;
+        double angle;
+        static final int FRAME_COUNT = 16;
+        static final double FRAME_INTERVAL = 0.04;
+
+        Bullet(double x, double y, double angle, double speed, int weaponType) {
+            this.x = x;
+            this.y = y;
+            this.angle = angle;
+            this.dx = Math.cos(angle) * speed;
+            this.dy = Math.sin(angle) * speed;
+            this.weaponType = weaponType;
+        }
+
+        void update(double deltaTime, List<Enemy> enemies) {
+            lifeTimer += deltaTime;
+
+            // Torpedo steering
+            if (targetEnemy != null) {
+                if (!enemies.contains(targetEnemy)) {
+                    targetEnemy = pickTorpedoTarget(enemies);
+                }
+                if (targetEnemy != null) {
+                    double targetAngle = Math.atan2(targetEnemy.y - y, targetEnemy.x - x);
+                    double angleDiff = MathUtils.angleDifference(targetAngle, angle);
+                    double maxRotation = spaceship.rotationSpeed * deltaTime;
+                    if (Math.abs(angleDiff) < maxRotation) {
+                        angle = targetAngle;
+                    } else {
+                        angle += Math.signum(angleDiff) * maxRotation;
+                    }
+                    double speed = Math.sqrt(dx * dx + dy * dy);
+                    dx = Math.cos(angle) * speed;
+                    dy = Math.sin(angle) * speed;
+                }
+            }
+
+            x += dx * deltaTime;
+            y += dy * deltaTime;
+            frameTimer += deltaTime;
+            if (frameTimer >= FRAME_INTERVAL) {
+                frameTimer -= FRAME_INTERVAL;
+                frameIndex = (frameIndex + 1) % FRAME_COUNT;
+            }
+        }
+
+        boolean isOffScreen() {
+            return x < -size || x > Game.gameWidth + size ||
+                   y < -size || y > Game.gameHeight + size;
+        }
+
+        private Enemy pickTorpedoTarget(List<Enemy> enemies) {
+            if (enemies.isEmpty()) return null;
+            Random rng = new Random();
+            double coneRadians = Math.toRadians(30);
+            List<Enemy> inCone = new ArrayList<>();
+            for (Enemy e : enemies) {
+                double angleToEnemy = Math.atan2(e.y - y, e.x - x);
+                double diff = Math.abs(MathUtils.angleDifference(angleToEnemy, angle));
+                if (diff <= coneRadians) {
+                    inCone.add(e);
+                }
+            }
+            if (!inCone.isEmpty()) {
+                return inCone.get(rng.nextInt(inCone.size()));
+            }
+            return enemies.get(rng.nextInt(enemies.size()));
+        }
+
+        boolean isExpired() {
+            return maxLife > 0 && lifeTimer >= maxLife;
+        }
+
+        void render(GraphicsContext gc) {
+            Image frame = com.game.util.WeaponSpriteLoader.getWeaponFrame(weaponType, frameIndex);
+            if (frame != null) {
+                gc.drawImage(frame, x - size / 2, y - size / 2, size, size);
+            }
+        }
+    }
 
     private class Star {
         double x, y;
@@ -1075,6 +1369,9 @@ public class PlayState extends GameState {
         Image sprite;
         double animationTimer = 0.0;
         int currentFrame = 0;
+        double shakeTimer = 0.0;
+        int shipType = 1;
+        double speedBeforeClick = 0;
 
         // For tracking target changes
         double lastTargetX = Double.NaN;
@@ -1144,8 +1441,22 @@ public class PlayState extends GameState {
             checkBoundaryAvoidance(targetX, targetY);
             handleBoundaryAvoidanceNavigation(deltaTime, targetX, targetY);
 
-            // Clamp speed to min/max
-            speed = Math.max(minSpeed, Math.min(maxSpeed, speed));
+            // Clamp speed based on ship type
+            double effectiveMaxSpeed = maxSpeed;
+            if (shipType == 2) {
+                effectiveMaxSpeed = maxSpeed * 2;
+            } else if (shipType == 4) {
+                if (navigationMode == NavigationMode.TRACKING) {
+                    effectiveMaxSpeed = maxSpeed * 4;
+                } else {
+                    if (speed > maxSpeed) {
+                        speed -= decelerationRate * 3.0 * deltaTime;
+                        if (speed < maxSpeed) speed = maxSpeed;
+                    }
+                    effectiveMaxSpeed = maxSpeed;
+                }
+            }
+            speed = Math.max(minSpeed, Math.min(effectiveMaxSpeed, speed));
 
             updateMovementAndBoundaries(deltaTime);
             updateEffects(deltaTime);
@@ -1176,7 +1487,7 @@ public class PlayState extends GameState {
             gc.rotate(Math.toDegrees(angle));
 
             // Get current animation frame
-            Image currentFrameImage = StarshipSpriteLoader.getStarshipFrame(currentFrame);
+            Image currentFrameImage = StarshipSpriteLoader.getStarshipFrame(shipType, currentFrame);
 
             // Calculate scale: resolution scale * wormhole effect scale
             double resolutionScale = getResolutionScale();
@@ -1261,25 +1572,31 @@ public class PlayState extends GameState {
             lastTargetY = y;
 
             // Keyboard rotation
+            double keyboardRotSpeed = rotationSpeed;
+            if (shipType == 3) keyboardRotSpeed *= 2;
             if (keyLeft) {
-                angle -= rotationSpeed * deltaTime;
+                angle -= keyboardRotSpeed * deltaTime;
             }
             if (keyRight) {
-                angle += rotationSpeed * deltaTime;
+                angle += keyboardRotSpeed * deltaTime;
             }
 
             // Keyboard acceleration/deceleration
+            double accelMult = (shipType == 2) ? 2.0 : (shipType == 4) ? 3.0 : 1.0;
             if (keyUp) {
-                speed += accelerationRate * deltaTime;
+                speed += accelerationRate * accelMult * deltaTime;
             } else if (keyDown) {
-                speed -= decelerationRate * deltaTime;
+                speed -= decelerationRate * accelMult * deltaTime;
             }
         }
 
         private void handleMouseControl(double deltaTime, double targetX, double targetY, boolean mousePressed) {
             // Only switch to tracking if mouse is actively pressed (not just moved)
             if (mousePressed) {
-                navigationMode = NavigationMode.TRACKING; // Switch to tracking mode
+                if (navigationMode != NavigationMode.TRACKING && shipType == 4) {
+                    speedBeforeClick = speed;
+                }
+                navigationMode = NavigationMode.TRACKING;
             }
 
             // Update last target for tracking changes
@@ -1305,6 +1622,7 @@ public class PlayState extends GameState {
             // Switch to ballistic mode if target is reached
             if (targetReached && navigationMode == NavigationMode.TRACKING) {
                 navigationMode = NavigationMode.BALLISTIC;
+                if (shipType == 4) speed = speedBeforeClick;
             } else if (targetReached && navigationMode == NavigationMode.BOUNDARY_AVOIDANCE) {
                 navigationMode = NavigationMode.BALLISTIC;
             }
@@ -1327,17 +1645,25 @@ public class PlayState extends GameState {
             // Adjust speed based on mouse press and alignment
             if (mousePressed) {
                 if (alignment > 0) {
-                    // Pointing toward target - accelerate
-                    speed += accelerationRate * deltaTime * alignment;
+                    double accelMult = (shipType == 2) ? 2.0 : (shipType == 4) ? 3.0 : 1.0;
+                    speed += accelerationRate * accelMult * deltaTime * alignment;
                 }
-                // If alignment <= 0 (pointing away), don't change speed
             }
         }
 
         private void rotateTowardAngle(double targetAngle, double deltaTime) {
             double rotationDiff = MathUtils.angleDifference(targetAngle, angle);
 
-            double maxRotation = rotationSpeed * deltaTime;
+            double effectiveRotationSpeed = rotationSpeed;
+            if (shipType == 2 || shipType == 4) {
+                effectiveRotationSpeed *= (speed / maxSpeed);
+            }
+            if (shipType == 3) {
+                effectiveRotationSpeed *= (navigationMode == NavigationMode.TRACKING) ? 5 : 2;
+            } else if (shipType == 4 && navigationMode == NavigationMode.TRACKING) {
+                effectiveRotationSpeed *= 5;
+            }
+            double maxRotation = effectiveRotationSpeed * deltaTime;
 
             // If within 30 degrees (PI/6 radians), scale rotation linearly
             double thirtyDegrees = Math.PI / 6.0;
@@ -1497,10 +1823,22 @@ public class PlayState extends GameState {
             // Normalize angle on boundary hit (no speed reduction)
             if (hitBoundary) {
                 angle = MathUtils.normalizeAngle(angle);
+                shakeTimer = 1.5;
             }
         }
 
         private void updateEffects(double deltaTime) {
+            // Update shake
+            if (shakeTimer > 0) {
+                double t = 1.5 - shakeTimer;
+                size = normalSize * (1.0 + 0.3 * Math.sin(t * 2 * 2 * Math.PI));
+                shakeTimer -= deltaTime;
+                if (shakeTimer <= 0) {
+                    shakeTimer = 0;
+                    size = normalSize;
+                }
+            }
+
             // Emit smoke clouds
             smokeTimer += deltaTime;
             if (smokeTimer >= SMOKE_INTERVAL) {

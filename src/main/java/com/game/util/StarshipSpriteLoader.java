@@ -3,22 +3,31 @@ package com.game.util;
 import javafx.scene.image.Image;
 import javafx.scene.image.WritableImage;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class StarshipSpriteLoader {
     private static final int SPRITE_SIZE = 80;
     private static final int FRAMES = 4;
     private static final int COLS = 4;
-    private static Image[] frames = null;
+    public static final int SHIP_TYPE_COUNT = 8;
+
+    private static Map<Integer, Image[]> shipTypeFrames = new HashMap<>();
 
     public static Image createStarshipSprite() {
-        // For backward compatibility, return frame 0
         return getStarshipFrame(0);
     }
 
     public static Image getStarshipFrame(int frameIndex) {
-        if (frames == null) {
-            loadSpriteSheet();
+        return getStarshipFrame(1, frameIndex);
+    }
+
+    public static Image getStarshipFrame(int shipType, int frameIndex) {
+        if (!shipTypeFrames.containsKey(shipType)) {
+            loadSpriteSheet(shipType);
         }
 
+        Image[] frames = shipTypeFrames.get(shipType);
         if (frames != null && frameIndex >= 0 && frameIndex < FRAMES) {
             return frames[frameIndex];
         }
@@ -30,22 +39,18 @@ public class StarshipSpriteLoader {
         return FRAMES;
     }
 
-    private static void loadSpriteSheet() {
-        frames = SpriteSheetLoader.loadSpriteSheet(
-            "/images/starship_sheet.png",
-            FRAMES,
-            COLS,
-            SPRITE_SIZE,
-            StarshipSpriteLoader.class
-        );
+    public static int getShipTypeCount() {
+        return SHIP_TYPE_COUNT;
+    }
+
+    private static void loadSpriteSheet(int shipType) {
+        String imagePath = "/images/starship_sheet_" + shipType + ".png";
+        Image[] frames = SpriteSheetLoader.loadSpriteSheet(imagePath, FRAMES, COLS, SPRITE_SIZE, StarshipSpriteLoader.class);
+        shipTypeFrames.put(shipType, frames);
     }
 
     private static Image createFallbackSprite() {
-        return createProgrammaticSprite();
-    }
-
-    private static Image createProgrammaticSprite() {
-        javafx.scene.image.WritableImage image = new javafx.scene.image.WritableImage(80, 80);
+        WritableImage image = new WritableImage(80, 80);
         javafx.scene.image.PixelWriter pw = image.getPixelWriter();
 
         int centerX = 40;
@@ -90,7 +95,6 @@ public class StarshipSpriteLoader {
                     try {
                         pw.setColor(x, y, color);
                     } catch (Exception e) {
-                        // Ignore out-of-bounds pixels
                     }
                 }
             }

@@ -20,4 +20,6 @@ public abstract class GameState {
     public void mouseClicked(double x, double y) {}
     public void mousePressed(double x, double y) {}
     public void mouseReleased(double x, double y) {}
+    public void mouseRightPressed(double x, double y) {}
+    public void mouseScrolled(double deltaY) {}
 }

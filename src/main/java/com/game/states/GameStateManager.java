@@ -76,4 +76,16 @@ public class GameStateManager {
             states.peek().mouseReleased(x, y);
         }
     }
+
+    public void mouseRightPressed(double x, double y) {
+        if (!states.isEmpty()) {
+            states.peek().mouseRightPressed(x, y);
+        }
+    }
+
+    public void mouseScrolled(double deltaY) {
+        if (!states.isEmpty()) {
+            states.peek().mouseScrolled(deltaY);
+        }
+    }
 }

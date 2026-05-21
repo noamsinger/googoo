@@ -8,6 +8,7 @@ import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.input.MouseButton;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
@@ -20,8 +21,8 @@ public class Game extends Application {
 
     public static final int WINDOW_WIDTH = 1024;
     public static final int WINDOW_HEIGHT = 768;
-    public static int GAME_MAX_WIDTH = 2560;
-    public static int GAME_MAX_HEIGHT = 1440;
+    public static int gameMaxWidth = 2560;
+    public static int gameMaxHeight = 1440;
     public static int gameWidth = WINDOW_WIDTH;  // Start with window dimensions
     public static int gameHeight = WINDOW_HEIGHT;
     public static final String TITLE = "GooGoo Game Remake";
@@ -66,13 +67,25 @@ public class Game extends Application {
         scene.setOnKeyReleased(e -> gsm.keyReleased(e.getCode()));
         scene.setOnMouseMoved(e -> handleMouseEvent(e, (x, y) -> gsm.mouseMoved(x, y)));
         scene.setOnMouseDragged(e -> handleMouseEvent(e, (x, y) -> gsm.mouseMoved(x, y)));
-        scene.setOnMouseClicked(e -> handleMouseEvent(e, (x, y) -> gsm.mouseClicked(x, y)));
-        scene.setOnMousePressed(e -> handleMouseEvent(e, (x, y) -> gsm.mousePressed(x, y)));
+        scene.setOnMouseClicked(e -> handleMouseEvent(e, (x, y) -> {
+            gsm.mouseClicked(x, y);
+        }));
+        scene.setOnMousePressed(e -> handleMouseEvent(e, (x, y) -> {
+            if (e.getButton() == MouseButton.SECONDARY) {
+                gsm.mouseRightPressed(x, y);
+            } else {
+                gsm.mousePressed(x, y);
+            }
+        }));
         scene.setOnMouseReleased(e -> handleMouseEvent(e, (x, y) -> gsm.mouseReleased(x, y)));
+        scene.setOnScroll(e -> {
+            gsm.mouseScrolled(e.getDeltaY());
+        });
 
         primaryStage.setScene(scene);
         primaryStage.setResizable(false);
         primaryStage.setFullScreenExitHint("");
+        primaryStage.setFullScreenExitKeyCombination(javafx.scene.input.KeyCombination.NO_MATCH);
 
         primaryStage.setOnCloseRequest(e -> {
             LOGGER.info("Close requested");
@@ -125,10 +138,10 @@ public class Game extends Application {
             maxWidth = 2560;
         }
 
-        GAME_MAX_WIDTH = maxWidth;
-        GAME_MAX_HEIGHT = maxHeight;
+        gameMaxWidth = maxWidth;
+        gameMaxHeight = maxHeight;
 
-        LOGGER.fine("Max game resolution set to: " + GAME_MAX_WIDTH + "x" + GAME_MAX_HEIGHT);
+        LOGGER.fine("Max game resolution set to: " + gameMaxWidth + "x" + gameMaxHeight);
     }
 
     public static void main(String[] args) {
@@ -158,8 +171,8 @@ public class Game extends Application {
 
                 // Determine resolution based on settings
                 if (resMode == GameSettings.ResolutionMode.AUTO) {
-                    gameWidth = GAME_MAX_WIDTH;
-                    gameHeight = GAME_MAX_HEIGHT;
+                    gameWidth = gameMaxWidth;
+                    gameHeight = gameMaxHeight;
                 } else {
                     gameWidth = resMode.getWidth();
                     gameHeight = resMode.getHeight();

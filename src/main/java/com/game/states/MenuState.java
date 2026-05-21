@@ -46,6 +46,7 @@ public class MenuState extends GameState {
         // Store menu items with text only - positions will be calculated dynamically during render
         menuItems = new ArrayList<>();
         menuItems.add(new MenuItem("Start", 0, 0));
+        menuItems.add(new MenuItem("Instructions", 0, 0));
         menuItems.add(new MenuItem("Config", 0, 0));
         menuItems.add(new MenuItem("About", 0, 0));
         menuItems.add(new MenuItem("Exit", 0, 0));
@@ -75,14 +76,14 @@ public class MenuState extends GameState {
         gc.setFill(Color.rgb(100, 200, 255));
         String title = Game.TITLE;
         double titleX = TextUtils.centerTextX(title, titleFont, canvasWidth);
-        gc.fillText(title, titleX, canvasHeight / 3.0);
+        gc.fillText(title, titleX, canvasHeight / 5.0);
 
         gc.setFont(menuFont);
 
         // Calculate menu item positions dynamically based on current canvas size
         double centerX = canvasWidth / 2.0;
         double centerY = canvasHeight / 2.0;
-        double[] yPositions = {centerY - 80, centerY, centerY + 80, centerY + 160};
+        double[] yPositions = {centerY - 120, centerY - 40, centerY + 40, centerY + 120, centerY + 200};
 
         for (int i = 0; i < menuItems.size(); i++) {
             MenuItem item = menuItems.get(i);
@@ -136,7 +137,7 @@ public class MenuState extends GameState {
         // Calculate menu item positions dynamically
         double centerX = Game.gameWidth / 2.0;
         double centerY = Game.gameHeight / 2.0;
-        double[] yPositions = {centerY - 80, centerY, centerY + 80, centerY + 160};
+        double[] yPositions = {centerY - 120, centerY - 40, centerY + 40, centerY + 120, centerY + 200};
 
         for (int i = 0; i < menuItems.size(); i++) {
             MenuItem item = menuItems.get(i);
@@ -161,7 +162,7 @@ public class MenuState extends GameState {
         // Calculate menu item positions dynamically
         double centerX = Game.gameWidth / 2.0;
         double centerY = Game.gameHeight / 2.0;
-        double[] yPositions = {centerY - 80, centerY, centerY + 80, centerY + 160};
+        double[] yPositions = {centerY - 120, centerY - 40, centerY + 40, centerY + 120, centerY + 200};
 
         for (int i = 0; i < menuItems.size(); i++) {
             MenuItem item = menuItems.get(i);
@@ -190,6 +191,10 @@ public class MenuState extends GameState {
             case "Start":
                 LOGGER.fine("Starting game - creating PlayState");
                 gsm.setState(new PlayState(gsm));
+                break;
+            case "Instructions":
+                LOGGER.fine("Opening instructions");
+                gsm.setState(new InstructionsState(gsm));
                 break;
             case "Config":
                 LOGGER.fine("Opening config");
