@@ -150,7 +150,7 @@ public class ShopState extends GameState {
         int currentShip = playState.getShipType();
         String[] shipNames = {"Ship 1", "Ship 2", "Ship 3", "Ship 4"};
         String[] shipDescs = {"Standard", "2x speed, 2x accel", "5x turn (track), 2x (keys)", "5x turn + 4x burst"};
-        int[] shipCosts = {0, 50, 80, 150};
+        int[] shipCosts = {0, 200, 500, 1000};
 
         for (int i = 0; i < 4; i++) {
             final int shipIdx = i;
@@ -181,7 +181,7 @@ public class ShopState extends GameState {
         // Fire modes (0-3): Manual, Semi-Auto, Auto, Vulkan
         String[] modeNames = {"Manual", "Semi-Auto", "Auto", "Vulkan"};
         String[] modeDescs = {"Click to fire", "Click, 0.3s rate", "Auto-fire 0.3s", "Auto-fire 0.1s"};
-        int[] modeCosts = {0, 30, 75, 150};
+        int[] modeCosts = {0, 100, 200, 400};
 
         for (int i = 0; i < 4; i++) {
             final int mIdx = i;
@@ -205,7 +205,7 @@ public class ShopState extends GameState {
         // Weapons: Bullet (0) and Torpedo (1)
         String[] weaponNames = {"Bullet", "Torpedo"};
         String[] weaponDescs = {"Standard projectile", "Homing, 5s life"};
-        int[] weaponCosts = {0, 80};
+        int[] weaponCosts = {0, 600};
 
         for (int i = 0; i < 2; i++) {
             final int wIdx = i;
@@ -251,30 +251,24 @@ public class ShopState extends GameState {
         // Timed Shield
         if (timedRemaining > 0) {
             if (activeShield.equals("timed")) {
-                allItems.add(new ShopItem("Timed Shield  Buy +60s", (int)timedRemaining + "s remaining", 60,
-                    () -> { playState.spendExp(60); playState.addTimedShield(60.0); },
-                    () -> playState.getExp() >= 60, Column.SHIELDS, "yellow"));
+                allItems.add(new ShopItem("Timed Shield  Buy +60s", (int)timedRemaining + "s remaining", 80,
+                    () -> { playState.spendExp(80); playState.addTimedShield(60.0); },
+                    () -> playState.getExp() >= 80, Column.SHIELDS, "yellow"));
             } else {
                 allItems.add(new ShopItem("Timed Shield  Select", (int)timedRemaining + "s remaining", 0,
                     () -> playState.setActiveShieldType("timed"),
                     () -> true, Column.SHIELDS, "green"));
             }
         } else {
-            allItems.add(new ShopItem("Timed Shield  Buy 60", "+60s protection", 60,
-                () -> { playState.spendExp(60); playState.addTimedShield(60.0); playState.setActiveShieldType("timed"); },
-                () -> playState.getExp() >= 60, Column.SHIELDS, "purple"));
+            allItems.add(new ShopItem("Timed Shield  Buy 80", "+60s protection", 80,
+                () -> { playState.spendExp(80); playState.addTimedShield(60.0); playState.setActiveShieldType("timed"); },
+                () -> playState.getExp() >= 80, Column.SHIELDS, "purple"));
         }
 
-        // Extra life / shield restore
-        if (playState.getGameMode() == PlayState.GameMode.LIVES) {
-            allItems.add(new ShopItem("Extra Life  Buy 10", "+1 life", 10,
-                () -> { playState.spendExp(10); playState.addLife(); },
-                () -> playState.getExp() >= 10, Column.SHIELDS, "purple"));
-        } else {
-            allItems.add(new ShopItem("Shield +5%  Buy 5", "Restore 5%", 5,
-                () -> { playState.spendExp(5); playState.addShieldPercentage(5.0); },
-                () -> playState.getExp() >= 5 && playState.getShieldPercentage() < 100.0, Column.SHIELDS, "purple"));
-        }
+        // Extra life
+        allItems.add(new ShopItem("Extra Life  Buy 10", "+1 life", 10,
+            () -> { playState.spendExp(10); playState.addLife(); },
+            () -> playState.getExp() >= 10, Column.SHIELDS, "purple"));
 
         // Actions (bottom)
         allItems.add(new ShopItem("Continue", "", 0, () -> gsm.popState(), () -> true, Column.ACTIONS, "white"));
@@ -330,17 +324,12 @@ public class ShopState extends GameState {
         // Status line
         gc.setFont(detailFont);
         gc.setFill(Color.rgb(180, 180, 180));
-        String status;
-        if (playState.getGameMode() == PlayState.GameMode.LIVES) {
-            status = "Lives: " + playState.getRemainingLives();
-            if (playState.getHitShieldRemaining() > 0) {
-                status += " | Hit Shield: " + playState.getHitShieldRemaining() + " hits";
-            }
-            if (playState.getTimedShieldRemaining() > 0) {
-                status += " | Timed Shield: " + (int) playState.getTimedShieldRemaining() + "s";
-            }
-        } else {
-            status = String.format("Shield: %.0f%%", playState.getShieldPercentage());
+        String status = "Lives: " + playState.getRemainingLives();
+        if (playState.getHitShieldRemaining() > 0) {
+            status += " | Hit Shield: " + playState.getHitShieldRemaining() + " hits";
+        }
+        if (playState.getTimedShieldRemaining() > 0) {
+            status += " | Timed Shield: " + (int) playState.getTimedShieldRemaining() + "s";
         }
         gc.fillText(status, TextUtils.centerTextX(status, detailFont, w), h * 0.26);
 

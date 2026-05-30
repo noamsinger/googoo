@@ -1,81 +1,66 @@
 package com.game.core;
 
-import java.util.HashMap;
-import java.util.Map;
-
 public class LevelProgress {
     private int level;
-    private GameSettings.GameType gameType;
-    private int startingLives;
-    private double startingShield;
-    private int startingExp;
-    private int hitShieldRemaining;
-    private double timedShieldRemaining;
+    private int lives;
+    private int exp;
     private int shipType;
     private boolean[] ownedShips;
+    private int weaponMode;
+    private int weapon;
+    private boolean[] ownedWeaponModes;
+    private boolean[] ownedWeapons;
+    private int hitShieldRemaining;
+    private double timedShieldRemaining;
+    private String shieldType;
 
-    public LevelProgress(int level, GameSettings.GameType gameType,
-                        int startingLives, double startingShield, int startingExp,
+    public LevelProgress(int level,
+                        int lives, int exp,
+                        int shipType, boolean[] ownedShips,
+                        int weaponMode, int weapon,
+                        boolean[] ownedWeaponModes, boolean[] ownedWeapons,
                         int hitShieldRemaining, double timedShieldRemaining,
-                        int shipType, boolean[] ownedShips) {
+                        String shieldType) {
         this.level = level;
-        this.gameType = gameType;
-        this.startingLives = startingLives;
-        this.startingShield = startingShield;
-        this.startingExp = startingExp;
+        this.lives = lives;
+        this.exp = exp;
+        this.shipType = shipType;
+        this.ownedShips = ownedShips != null ? ownedShips.clone() : new boolean[]{true, false, false, false, false, false, false, false};
+        this.weaponMode = weaponMode;
+        this.weapon = weapon;
+        this.ownedWeaponModes = ownedWeaponModes != null ? ownedWeaponModes.clone() : new boolean[]{true, false, false, false};
+        this.ownedWeapons = ownedWeapons != null ? ownedWeapons.clone() : new boolean[]{true, false};
         this.hitShieldRemaining = hitShieldRemaining;
         this.timedShieldRemaining = timedShieldRemaining;
-        this.shipType = shipType;
-        this.ownedShips = ownedShips != null ? ownedShips : new boolean[]{true, false, false, false, false, false, false, false};
+        this.shieldType = shieldType != null ? shieldType : "none";
     }
 
-    public int getLevel() {
-        return level;
-    }
-
-    public GameSettings.GameType getGameType() {
-        return gameType;
-    }
-
-    public int getStartingLives() {
-        return startingLives;
-    }
-
-    public double getStartingShield() {
-        return startingShield;
-    }
-
-    public int getStartingExp() {
-        return startingExp;
-    }
-
-    public void setStartingLives(int lives) {
-        this.startingLives = lives;
-    }
-
-    public void setStartingShield(double shield) {
-        this.startingShield = shield;
-    }
-
-    public void setStartingExp(int exp) {
-        this.startingExp = exp;
-    }
-
-    public int getHitShieldRemaining() { return hitShieldRemaining; }
-    public void setHitShieldRemaining(int hits) { this.hitShieldRemaining = hits; }
-    public double getTimedShieldRemaining() { return timedShieldRemaining; }
-    public void setTimedShieldRemaining(double seconds) { this.timedShieldRemaining = seconds; }
-
+    public int getLevel() { return level; }
+    public int getLives() { return lives; }
+    public int getExp() { return exp; }
     public int getShipType() { return shipType; }
-    public void setShipType(int type) { this.shipType = type; }
     public boolean[] getOwnedShips() { return ownedShips; }
-    public void setOwnedShips(boolean[] ships) { this.ownedShips = ships; }
+    public int getWeaponMode() { return weaponMode; }
+    public int getWeapon() { return weapon; }
+    public boolean[] getOwnedWeaponModes() { return ownedWeaponModes; }
+    public boolean[] getOwnedWeapons() { return ownedWeapons; }
+    public int getHitShieldRemaining() { return hitShieldRemaining; }
+    public double getTimedShieldRemaining() { return timedShieldRemaining; }
+    public String getShieldType() { return shieldType; }
 
     public String getKey() {
-        return gameType.name() + "_LEVEL_" + level;
+        return "LEVEL_" + level;
     }
 
     public static int getLevelFromKey(String key) {
+        if (key.startsWith("LEVEL_")) {
+            try {
+                return Integer.parseInt(key.substring(6));
+            } catch (NumberFormatException e) {
+                return 1;
+            }
+        }
+        // Legacy key format: LIVES_LEVEL_N
         String[] parts = key.split("_LEVEL_");
         if (parts.length == 2) {
             try {
@@ -85,17 +70,5 @@ public class LevelProgress {
             }
         }
         return 1;
-    }
-
-    public static GameSettings.GameType getGameTypeFromKey(String key) {
-        String[] parts = key.split("_LEVEL_");
-        if (parts.length == 2) {
-            try {
-                return GameSettings.GameType.valueOf(parts[0]);
-            } catch (IllegalArgumentException e) {
-                return GameSettings.GameType.SHIELD;
-            }
-        }
-        return GameSettings.GameType.SHIELD;
     }
 }

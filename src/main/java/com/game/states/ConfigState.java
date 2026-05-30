@@ -21,7 +21,6 @@ public class ConfigState extends GameState {
     private enum ConfigOption {
         STARTING_LEVEL,
         RESOLUTION,
-        GAME_TYPE,
         BACK
     }
 
@@ -65,8 +64,8 @@ public class ConfigState extends GameState {
         // Always add level 1
         availableLevelOptions.add("1");
 
-        // Add levels with progress for current game type
-        List<Integer> levels = progressManager.getAvailableLevels(settings.getGameType());
+        // Add levels with progress
+        List<Integer> levels = progressManager.getAvailableLevels();
         for (Integer level : levels) {
             if (level > 1) {
                 availableLevelOptions.add(String.valueOf(level));
@@ -114,7 +113,7 @@ public class ConfigState extends GameState {
         // Title
         gc.setFont(titleFont);
         gc.setFill(Color.rgb(100, 200, 255));
-        String title = "Settings";
+        String title = "Configuration";
         double titleX = TextUtils.centerTextX(title, titleFont, canvasWidth);
         gc.fillText(title, titleX, 100);
 
@@ -127,7 +126,7 @@ public class ConfigState extends GameState {
         // Starting Level
         String levelDisplay = availableLevelOptions.get(currentLevelOptionIndex);
         if (levelDisplay.equals("Last")) {
-            int lastLevel = progressManager.getLastLevel(settings.getGameType());
+            int lastLevel = progressManager.getLastLevel();
             levelDisplay = "Last (" + lastLevel + ")";
         }
         renderOption(gc, "Starting Level:", levelDisplay,
@@ -137,11 +136,6 @@ public class ConfigState extends GameState {
         // Resolution
         renderOption(gc, "Resolution:", settings.getResolutionMode().getDisplayName(),
                      startY + optionIndex * lineHeight, currentSelection == ConfigOption.RESOLUTION);
-        optionIndex++;
-
-        // Game Type
-        renderOption(gc, "Game Type:", settings.getGameType().getDisplayName(),
-                     startY + optionIndex * lineHeight, currentSelection == ConfigOption.GAME_TYPE);
         optionIndex++;
 
         // Back button
@@ -267,20 +261,6 @@ public class ConfigState extends GameState {
                 }
                 settings.setResolutionMode(resModes[resIndex]);
                 break;
-
-            case GAME_TYPE:
-                GameSettings.GameType[] gameTypes = GameSettings.GameType.values();
-                int typeIndex = settings.getGameType().ordinal() + direction;
-                if (typeIndex < 0) {
-                    typeIndex = gameTypes.length - 1;
-                } else if (typeIndex >= gameTypes.length) {
-                    typeIndex = 0;
-                }
-                settings.setGameType(gameTypes[typeIndex]);
-
-                // Update available levels for new game type
-                updateAvailableLevels();
-                break;
         }
     }
 
@@ -296,7 +276,7 @@ public class ConfigState extends GameState {
         // Check which option the mouse is over
         for (int i = 0; i < ConfigOption.values().length; i++) {
             double optionY = startY + i * lineHeight;
-            if (i == 3) optionY += 40; // Back button offset
+            if (i == 2) optionY += 40; // Back button offset
 
             if (y >= optionY - 30 && y <= optionY + 20) {
                 currentSelection = ConfigOption.values()[i];
@@ -314,7 +294,7 @@ public class ConfigState extends GameState {
 
         for (int i = 0; i < ConfigOption.values().length; i++) {
             double optionY = startY + i * lineHeight;
-            if (i == 3) optionY += 40; // Back button offset
+            if (i == 2) optionY += 40; // Back button offset
 
             if (y >= optionY - 30 && y <= optionY + 20) {
                 currentSelection = ConfigOption.values()[i];

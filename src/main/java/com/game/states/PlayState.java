@@ -35,7 +35,7 @@ public class PlayState extends GameState {
     // Game constants
     private static final int STAR_COUNT = 400;
     private static final double EXP_COLOR_CYCLE_DURATION = 10.0; // seconds
-    private static final double COLLISION_DAMAGE_MULTIPLIER = 10.0;
+    static final double LIGHT_SPEED = 450.0;
 
     // Physics and collision constants
     private static final double BLACK_HOLE_RADIUS = 60.0; // Half of 120 pixel sprite size
@@ -96,14 +96,13 @@ public class PlayState extends GameState {
 
     // Game mode enum
     public enum GameMode {
-        SHIELD,        // Shield percentage mode (1-10% damage per hit)
         LIVES          // Lives mode with 5-second immunity after losing a life
     }
 
     // Game mode and lives
-    private GameMode gameMode = GameMode.SHIELD; // Default mode
+    private GameMode gameMode = GameMode.LIVES;
     private int remainingLives = 3;
-    private boolean isImmune = false; // Immunity after losing a life in 3-life mode
+    private boolean isImmune = false;
     private double immunityTimer = 0.0;
 
     // Shop shields
@@ -188,49 +187,44 @@ public class PlayState extends GameState {
         StarshipExplosionSpriteLoader.loadExplosionSprites();
 
         // Set game mode from settings
-        GameSettings.GameType settingsGameType = settings.getGameType();
-        switch (settingsGameType) {
-            case SHIELD:
-                gameMode = GameMode.SHIELD;
-                break;
-            case LIVES:
-                gameMode = GameMode.LIVES;
-                break;
-            default:
-                gameMode = GameMode.SHIELD;
-        }
         remainingLives = 3;
         isImmune = false;
         immunityTimer = 0.0;
-        LOGGER.info("Game mode set to: " + gameMode + " (from settings: " + settingsGameType + ")");
+        LOGGER.info("Game mode: LIVES");
 
         // Initialize level from settings (reuse settings variable from above)
         currentLevel = settings.getResolvedStartingLevel();
 
         // Check if we should restore progress for this level
         ProgressManager progressManager = ProgressManager.getInstance();
-        LevelProgress levelProgress = progressManager.getLevelProgress(currentLevel, settingsGameType);
+        LevelProgress levelProgress = progressManager.getLevelProgress(currentLevel);
 
         if (levelProgress != null) {
             // Restore saved progress
-            exp = levelProgress.getStartingExp();
-            remainingLives = levelProgress.getStartingLives();
-            spaceship.shieldPercentage = levelProgress.getStartingShield();
-            hitShieldRemaining = levelProgress.getHitShieldRemaining();
-            timedShieldRemaining = levelProgress.getTimedShieldRemaining();
+            exp = levelProgress.getExp();
+            remainingLives = levelProgress.getLives();
             spaceship.shipType = levelProgress.getShipType();
             ownedShips = levelProgress.getOwnedShips();
+            activeWeaponMode = levelProgress.getWeaponMode();
+            activeWeapon = levelProgress.getWeapon();
+            ownedWeaponModes = levelProgress.getOwnedWeaponModes();
+            ownedWeapons = levelProgress.getOwnedWeapons();
+            hitShieldRemaining = levelProgress.getHitShieldRemaining();
+            timedShieldRemaining = levelProgress.getTimedShieldRemaining();
+            activeShieldType = levelProgress.getShieldType();
             LOGGER.fine("Restored progress for level " + currentLevel + ": exp=" + exp +
-                       ", lives=" + remainingLives + ", shield=" + spaceship.shieldPercentage);
+                       ", lives=" + remainingLives);
         } else {
             // Starting fresh - record initial state for this level
             exp = 0;
             remainingLives = 3;
-            spaceship.shieldPercentage = 100.0;
-            progressManager.recordLevelProgress(currentLevel, settingsGameType,
-                                               remainingLives, spaceship.shieldPercentage, exp,
+            progressManager.recordLevelProgress(currentLevel,
+                                               remainingLives, exp,
+                                               spaceship.shipType, ownedShips,
+                                               activeWeaponMode, activeWeapon,
+                                               ownedWeaponModes, ownedWeapons,
                                                hitShieldRemaining, timedShieldRemaining,
-                                               spaceship.shipType, ownedShips);
+                                               activeShieldType);
             LOGGER.fine("Starting fresh at level " + currentLevel);
         }
 
@@ -347,8 +341,8 @@ public class PlayState extends GameState {
             // Continue updating world even during explosion
         }
 
-        // Update immunity timer in 3-life mode
-        if (gameMode == GameMode.LIVES && isImmune) {
+        // Update immunity timer
+        if (isImmune) {
             immunityTimer += deltaTime;
             if (immunityTimer >= IMMUNITY_DURATION) {
                 isImmune = false;
@@ -382,14 +376,16 @@ public class PlayState extends GameState {
             heartSpawnedThisLevel = false;
 
             // Record progress for new level
-            GameSettings settings = GameSettings.getInstance();
             ProgressManager progressManager = ProgressManager.getInstance();
-            progressManager.recordLevelProgress(currentLevel, settings.getGameType(),
-                                               remainingLives, spaceship.shieldPercentage, exp,
+            progressManager.recordLevelProgress(currentLevel,
+                                               remainingLives, exp,
+                                               spaceship.shipType, ownedShips,
+                                               activeWeaponMode, activeWeapon,
+                                               ownedWeaponModes, ownedWeapons,
                                                hitShieldRemaining, timedShieldRemaining,
-                                               spaceship.shipType, ownedShips);
+                                               activeShieldType);
             LOGGER.fine("Recorded progress for level " + currentLevel + ": exp=" + exp +
-                       ", lives=" + remainingLives + ", shield=" + spaceship.shieldPercentage);
+                       ", lives=" + remainingLives);
 
             // On even levels, add a black hole pair
             if (currentLevel % 2 == 0) {
@@ -641,7 +637,7 @@ public class PlayState extends GameState {
             // Skip collision detection if in debug mode or if immune in LIVES mode
             GameSettings settings = GameSettings.getInstance();
             boolean debugMode = settings.isDebugMode();
-            boolean canCollide = !debugMode && (gameMode != GameMode.LIVES || !isImmune);
+            boolean canCollide = !debugMode && !isImmune;
 
             if (canCollide) {
                 for (int i = enemies.size() - 1; i >= 0; i--) {
@@ -670,55 +666,17 @@ public class PlayState extends GameState {
                             continue;
                         }
 
-                        if (gameMode == GameMode.SHIELD) {
-                            // Shield mode: calculate energy-based damage
-                            // Calculate velocity vectors
-                            double spaceshipVx = Math.cos(spaceship.angle) * spaceship.speed;
-                            double spaceshipVy = Math.sin(spaceship.angle) * spaceship.speed;
-                            double enemyVx = Math.cos(enemy.angle) * enemy.speed;
-                            double enemyVy = Math.sin(enemy.angle) * enemy.speed;
-
-                            // Calculate relative velocity (how fast they're approaching each other)
-                            double relativeVx = spaceshipVx - enemyVx;
-                            double relativeVy = spaceshipVy - enemyVy;
-                            double relativeSpeed = Math.sqrt(relativeVx * relativeVx + relativeVy * relativeVy);
-
-                            // Maximum possible relative speed (both at max speed in opposite directions)
-                            double maxRelativeSpeed = spaceship.maxSpeed + spaceship.maxSpeed * 0.7; // Enemy can be up to 0.7 of max speed
-
-                            // Calculate impact energy as percentage (0 to 1)
-                            double impactEnergy = relativeSpeed / maxRelativeSpeed;
-
-                            // Scale to 1-10% damage (minimum 1%, maximum 10%)
-                            double damage = Math.max(1.0, impactEnergy * COLLISION_DAMAGE_MULTIPLIER);
-
-                            LOGGER.fine(String.format("Collision: relativeSpeed=%.1f, maxRelativeSpeed=%.1f, damage=%.1f%%",
-                                    relativeSpeed, maxRelativeSpeed, damage));
-
-                            // Shield mode: reduce shield by calculated damage
-                            spaceship.shieldPercentage -= damage;
-                            LOGGER.fine(String.format("Shield reduced by %.1f%%, remaining: %.1f%%", damage, spaceship.shieldPercentage));
-                            if (spaceship.shieldPercentage <= 0) {
-                                spaceship.shieldPercentage = 0;
-                                // Game over - trigger starship explosion
-                                starshipExplosion = new StarshipExplosion(spaceship.x, spaceship.y);
-                                LOGGER.info("Game Over - Shield depleted!");
-                            }
-                        } else if (gameMode == GameMode.LIVES) {
-                            // 3-life mode: reduce lives by 1 and start immunity
-                            remainingLives--;
-                            LOGGER.fine("Life lost! Remaining lives: " + remainingLives);
-                            if (remainingLives <= 0) {
-                                remainingLives = 0;
-                                // Game over - trigger starship explosion
-                                starshipExplosion = new StarshipExplosion(spaceship.x, spaceship.y);
-                                LOGGER.info("Game Over - All lives lost!");
-                            } else {
-                                // Start immunity period
-                                isImmune = true;
-                                immunityTimer = 0.0;
-                                LOGGER.fine("Immunity period started (5 seconds)");
-                            }
+                        // Lives mode: reduce lives by 1 and start immunity
+                        remainingLives--;
+                        LOGGER.fine("Life lost! Remaining lives: " + remainingLives);
+                        if (remainingLives <= 0) {
+                            remainingLives = 0;
+                            starshipExplosion = new StarshipExplosion(spaceship.x, spaceship.y);
+                            LOGGER.info("Game Over - All lives lost!");
+                        } else {
+                            isImmune = true;
+                            immunityTimer = 0.0;
+                            LOGGER.fine("Immunity period started (5 seconds)");
                         }
 
                         // Remove enemy from active list and create explosion
@@ -874,27 +832,6 @@ public class PlayState extends GameState {
             );
             gc.setLineDashes(0);
         }
-
-        // Shield mode percentage ring
-        if (gameMode == GameMode.SHIELD && !GameSettings.getInstance().isDebugMode() && !(gameMode == GameMode.LIVES && isImmune)) {
-            double circleRadius = spaceship.size * 1.5;
-            double percentage = spaceship.shieldPercentage / 100.0;
-            double maxDash = 20.0;
-            double dashLen = Math.max(2.0, maxDash * percentage);
-            double gapLen = Math.max(1.0, maxDash * (1.0 - percentage));
-
-            Color ringColor = ColorMorphing.getHealthColor(spaceship.shieldPercentage);
-            gc.setStroke(Color.color(ringColor.getRed(), ringColor.getGreen(), ringColor.getBlue(), 0.6));
-            gc.setLineWidth(2.0);
-            gc.setLineDashes(dashLen, gapLen);
-            gc.strokeOval(
-                spaceship.x - circleRadius,
-                spaceship.y - circleRadius,
-                circleRadius * 2,
-                circleRadius * 2
-            );
-            gc.setLineDashes(0);
-        }
     }
 
     private void renderGems(GraphicsContext gc) {
@@ -1009,23 +946,10 @@ public class PlayState extends GameState {
     }
 
     private void renderStatus(GraphicsContext gc) {
-        String statusText;
-        double statusValue;
-        double maxValue;
-
-        if (gameMode == GameMode.LIVES) {
-            statusText = String.format("Remaining %d %s", remainingLives, remainingLives == 1 ? "life" : "lives");
-            statusValue = remainingLives;
-            maxValue = Math.max(5, remainingLives);
-        } else {
-            statusText = String.format("Shield %d%%", (int) spaceship.shieldPercentage);
-            statusValue = spaceship.shieldPercentage;
-            maxValue = 100;
-        }
+        String statusText = String.format("Remaining %d %s", remainingLives, remainingLives == 1 ? "life" : "lives");
+        double percentage = (remainingLives / Math.max(5.0, remainingLives)) * 100.0;
 
         gc.setFont(javafx.scene.text.Font.font("Arial", javafx.scene.text.FontWeight.BOLD, 32));
-
-        double percentage = (statusValue / maxValue) * 100.0;
         Color statusColor = ColorMorphing.getHealthColor(percentage);
         gc.setFill(statusColor);
 
@@ -1126,7 +1050,7 @@ public class PlayState extends GameState {
 
     private void fireBullet() {
         if (bulletCooldown > 0 || gameOver || starshipExplosion != null || spaceship.inWormhole) return;
-        double bulletSpeed = spaceship.maxSpeed * 2;
+        double bulletSpeed = LIGHT_SPEED * 2;
         double bx = spaceship.x + Math.cos(spaceship.angle) * spaceship.size;
         double by = spaceship.y + Math.sin(spaceship.angle) * spaceship.size;
 
@@ -1155,16 +1079,12 @@ public class PlayState extends GameState {
     public void spendExp(int amount) { exp -= amount; }
     public GameMode getGameMode() { return gameMode; }
     public int getRemainingLives() { return remainingLives; }
-    public double getShieldPercentage() { return spaceship.shieldPercentage; }
     public int getHitShieldRemaining() { return hitShieldRemaining; }
     public double getTimedShieldRemaining() { return timedShieldRemaining; }
 
     public void addLife() { remainingLives++; }
     public void addHitShield(int hits) { hitShieldRemaining += hits; }
     public void addTimedShield(double seconds) { timedShieldRemaining += seconds; }
-    public void addShieldPercentage(double amount) {
-        spaceship.shieldPercentage = Math.min(100.0, spaceship.shieldPercentage + amount);
-    }
 
     public int getShipType() { return spaceship.shipType; }
     public void setShipType(int type) { spaceship.shipType = type; }
@@ -1350,11 +1270,10 @@ public class PlayState extends GameState {
         double angle; // In radians, 0 = right, PI/2 = down
 
         // Base values at reference resolution (1920x1080)
-        private static final double BASE_SPEED = 200.0;
-        private static final double BASE_MIN_SPEED = 50.0;
-        private static final double BASE_MAX_SPEED = 400.0;
-        private static final double BASE_ACCELERATION_RATE = 100.0;
-        private static final double BASE_DECELERATION_RATE = 400.0;
+        private static final double BASE_MIN_SPEED = 0.125 * LIGHT_SPEED;
+        private static final double BASE_MAX_SPEED = 1.0 * LIGHT_SPEED;
+        private static final double BASE_ACCELERATION_RATE = 0.25 * LIGHT_SPEED;
+        private static final double BASE_DECELERATION_RATE = 1.0 * LIGHT_SPEED;
         private static final double BASE_SIZE = 30.0;
 
         // Scaled values for current resolution
@@ -1372,6 +1291,8 @@ public class PlayState extends GameState {
         double shakeTimer = 0.0;
         int shipType = 1;
         double speedBeforeClick = 0;
+        boolean deceleratingToMin = false;
+        boolean nearTarget = false;
 
         // For tracking target changes
         double lastTargetX = Double.NaN;
@@ -1397,9 +1318,6 @@ public class PlayState extends GameState {
         double wormholeSourceY;
         double wormholeStartX; // Starting position when entering wormhole
         double wormholeStartY;
-
-        // Shield system
-        double shieldPercentage = 100.0;
 
         Spaceship(double x, double y) {
             this.x = x;
@@ -1446,15 +1364,7 @@ public class PlayState extends GameState {
             if (shipType == 2) {
                 effectiveMaxSpeed = maxSpeed * 2;
             } else if (shipType == 4) {
-                if (navigationMode == NavigationMode.TRACKING) {
-                    effectiveMaxSpeed = maxSpeed * 4;
-                } else {
-                    if (speed > maxSpeed) {
-                        speed -= decelerationRate * 3.0 * deltaTime;
-                        if (speed < maxSpeed) speed = maxSpeed;
-                    }
-                    effectiveMaxSpeed = maxSpeed;
-                }
+                effectiveMaxSpeed = maxSpeed * 4;
             }
             speed = Math.max(minSpeed, Math.min(effectiveMaxSpeed, speed));
 
@@ -1582,7 +1492,7 @@ public class PlayState extends GameState {
             }
 
             // Keyboard acceleration/deceleration
-            double accelMult = (shipType == 2) ? 2.0 : (shipType == 4) ? 3.0 : 1.0;
+            double accelMult = (shipType == 2) ? 2.0 : (shipType == 4) ? 42.0 : 1.0;
             if (keyUp) {
                 speed += accelerationRate * accelMult * deltaTime;
             } else if (keyDown) {
@@ -1596,6 +1506,8 @@ public class PlayState extends GameState {
                 if (navigationMode != NavigationMode.TRACKING && shipType == 4) {
                     speedBeforeClick = speed;
                 }
+                deceleratingToMin = false;
+                nearTarget = false;
                 navigationMode = NavigationMode.TRACKING;
             }
 
@@ -1621,8 +1533,15 @@ public class PlayState extends GameState {
 
             // Switch to ballistic mode if target is reached
             if (targetReached && navigationMode == NavigationMode.TRACKING) {
-                navigationMode = NavigationMode.BALLISTIC;
-                if (shipType == 4) speed = speedBeforeClick;
+                if (shipType == 4) {
+                    speed = minSpeed;
+                    nearTarget = true;
+                    deceleratingToMin = false;
+                } else {
+                    navigationMode = NavigationMode.BALLISTIC;
+                }
+            } else if (!targetReached && nearTarget && distanceToTarget > reachedThreshold * 3) {
+                nearTarget = false;
             } else if (targetReached && navigationMode == NavigationMode.BOUNDARY_AVOIDANCE) {
                 navigationMode = NavigationMode.BALLISTIC;
             }
@@ -1644,8 +1563,12 @@ public class PlayState extends GameState {
 
             // Adjust speed based on mouse press and alignment
             if (mousePressed) {
-                if (alignment > 0) {
-                    double accelMult = (shipType == 2) ? 2.0 : (shipType == 4) ? 3.0 : 1.0;
+                if (shipType == 4) {
+                    if (!nearTarget && !deceleratingToMin) {
+                        speed += accelerationRate * 42.0 * deltaTime;
+                    }
+                } else if (alignment > 0) {
+                    double accelMult = (shipType == 2) ? 2.0 : 1.0;
                     speed += accelerationRate * accelMult * deltaTime * alignment;
                 }
             }
@@ -1655,13 +1578,11 @@ public class PlayState extends GameState {
             double rotationDiff = MathUtils.angleDifference(targetAngle, angle);
 
             double effectiveRotationSpeed = rotationSpeed;
-            if (shipType == 2 || shipType == 4) {
+            if (shipType == 2) {
                 effectiveRotationSpeed *= (speed / maxSpeed);
             }
-            if (shipType == 3) {
+            if (shipType == 3 || shipType == 4) {
                 effectiveRotationSpeed *= (navigationMode == NavigationMode.TRACKING) ? 5 : 2;
-            } else if (shipType == 4 && navigationMode == NavigationMode.TRACKING) {
-                effectiveRotationSpeed *= 5;
             }
             double maxRotation = effectiveRotationSpeed * deltaTime;
 
@@ -2153,7 +2074,7 @@ public class PlayState extends GameState {
             this.y = y;
             this.enemyType = enemyType;
             this.previousSpaceshipSpeed = spaceship.speed;
-            this.speed = spaceship.maxSpeed * 0.5; // Start at 0.5 of spaceship's max speed
+            this.speed = LIGHT_SPEED * 0.5; // Start at 0.5 of light speed
             this.angle = rng.nextDouble() * 2 * Math.PI;
 
             // Initialize random blind target
@@ -2167,7 +2088,7 @@ public class PlayState extends GameState {
             // Initialize random speed target and interval for skill 0x08
             if (hasRandomSpeedSkill()) {
                 // Each enemy gets a unique initial target speed
-                targetSpeed = spaceship.maxSpeed * (0.5 + rng.nextDouble() * 0.6); // 0.5 to 1.1 of max
+                targetSpeed = LIGHT_SPEED * (0.5 + rng.nextDouble() * 0.6); // 0.5 to 1.1 of light speed
                 speed = targetSpeed; // Start at the target speed
                 // Each enemy gets a unique random interval (5-15 seconds)
                 speedChangeInterval = 5.0 + rng.nextDouble() * 10.0;
@@ -2238,47 +2159,43 @@ public class PlayState extends GameState {
                 if (speedChangeTimer >= speedChangeInterval) {
                     speedChangeTimer = 0.0;
                     // Pick new random target speed between 0.5 and 1.1 of max
-                    targetSpeed = spaceship.maxSpeed * (0.5 + rng.nextDouble() * 0.6);
+                    targetSpeed = LIGHT_SPEED * (0.5 + rng.nextDouble() * 0.6);
                     // Pick new random interval for next change (5-15 seconds)
                     speedChangeInterval = 5.0 + rng.nextDouble() * 10.0;
                 }
 
-                // Accelerate/decelerate toward target using starship's rates
+                // Accelerate/decelerate toward target using light-speed-based rates
                 if (speed < targetSpeed) {
-                    // Accelerate at starship's acceleration rate
-                    speed += spaceship.accelerationRate * deltaTime;
+                    speed += 0.25 * LIGHT_SPEED * deltaTime;
                     if (speed > targetSpeed) {
                         speed = targetSpeed;
                     }
                 } else if (speed > targetSpeed) {
-                    // Decelerate at starship's deceleration rate
-                    speed -= spaceship.decelerationRate * deltaTime;
+                    speed -= 1.0 * LIGHT_SPEED * deltaTime;
                     if (speed < targetSpeed) {
                         speed = targetSpeed;
                     }
                 }
             } else {
-                // Normal enemies: track at 0.5 of max speed with acceleration/deceleration rules
-                double baseTargetSpeed = spaceship.maxSpeed * 0.5;
+                // Normal enemies: track at 0.5 of light speed
+                double baseTargetSpeed = LIGHT_SPEED * 0.5;
 
                 // Detect if spaceship is accelerating or decelerating
                 boolean spaceshipAccelerating = spaceship.speed > previousSpaceshipSpeed;
                 boolean spaceshipDecelerating = spaceship.speed < previousSpaceshipSpeed;
 
                 if (spaceshipAccelerating) {
-                    // Accelerate at half the spaceship's rate
-                    double spaceshipAccelRate = (spaceship.speed - previousSpaceshipSpeed) / deltaTime;
-                    speed += (spaceshipAccelRate * 0.5) * deltaTime;
-
-                    // Clamp to target speed (don't exceed 0.5 of max speed)
+                    // Accelerate at half the base rate
+                    speed += 0.125 * LIGHT_SPEED * deltaTime;
                     if (speed > baseTargetSpeed) {
                         speed = baseTargetSpeed;
                     }
                 } else if (spaceshipDecelerating) {
-                    // Instantly match spaceship speed
-                    speed = spaceship.speed;
+                    // Decelerate toward base target speed
+                    speed -= 1.0 * LIGHT_SPEED * deltaTime;
+                    if (speed < baseTargetSpeed) speed = baseTargetSpeed;
                 } else {
-                    // Spaceship speed unchanged - gradually converge to target speed
+                    // Gradually converge to target speed
                     speed += (baseTargetSpeed - speed) * Math.min(1.0, deltaTime * 2.0);
                 }
             }
@@ -2634,20 +2551,8 @@ public class PlayState extends GameState {
     private void collectHeart() {
         if (heart == null) return;
 
-        double heartPercentage = heart.getPercentage(); // 100% to 10%
-
-        if (gameMode == GameMode.LIVES) {
-            // Add a life (unlimited)
-            remainingLives = remainingLives + 1;
-            LOGGER.fine("Heart collected! Lives: " + remainingLives);
-        } else if (gameMode == GameMode.SHIELD) {
-            // Fill shield based on heart percentage
-            // heartPercentage ranges from 100 (just spawned) to 10 (about to vanish)
-            // Formula: newShield = currentShield + (heartPercentage / 100) * (100 - currentShield)
-            double fillAmount = (heartPercentage / 100.0) * (100.0 - spaceship.shieldPercentage);
-            spaceship.shieldPercentage = Math.min(100.0, spaceship.shieldPercentage + fillAmount);
-            LOGGER.fine("Heart collected! Shield: " + spaceship.shieldPercentage + "%");
-        }
+        remainingLives = remainingLives + 1;
+        LOGGER.fine("Heart collected! Lives: " + remainingLives);
     }
 
     private class Heart {

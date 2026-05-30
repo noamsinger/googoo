@@ -17,7 +17,7 @@ Spiritual Successor to: GooGoo by Noam Singer, & Raz Shoham (original Sinclair S
 - **Gem collection system** with rainbow-colored EXP display
 - **Heart power-ups** with time-limited effectiveness
 - **16 unique enemy types** with AI behavior combinations
-- **Two game modes**: Shield Level or Lives
+- **One game mode**: Lives (start with 3 lives, earn more via hearts or shop)
 - **Wormhole mechanics** for strategic escapes
 - **Dynamic difficulty** through enemy behavior flags
 - **Level progression** with automatic save/resume (Shield and Lives modes)
@@ -45,7 +45,7 @@ Press **S** during gameplay to open the mid-game shop (pauses the game). Spend E
 - **Fire Modes** (4 modes): Manual → Semi-Auto → Auto → Vulkan
 - **Weapons** (2 types): Bullet (standard) or Torpedo (homing, 5s life)
 - **Shields**: Hit Shield (absorbs N hits) or Timed Shield (time-limited protection)
-- **Lives / Shield restore**: Buy extra lives (Lives mode) or restore 5% shield (Shield mode)
+- **Lives**: Buy extra lives (10 EXP each)
 
 ## Controls
 
@@ -138,12 +138,6 @@ mvn javafx:run    # Run the application
 ## Game Mechanics Details
 
 ### Game Modes
-- **Shield Level**: Health represented as shield percentage (100% to 0%)
-  - Takes 1-10% damage per enemy hit
-  - Hearts restore shield percentage based on collection timing
-  - Game over when shield reaches 0%
-  - Level selection available for reached levels
-  
 - **Lives**: Start with 3 lives, unlimited maximum
   - 5-second immunity after losing a life
   - Hearts add one additional life (no cap)
@@ -159,7 +153,6 @@ mvn javafx:run    # Run the application
 ### Hearts
 - Spawn after collecting 4 gems
 - Last 30 seconds with visual dimming (100% → 10%)
-- **Shield Level Mode**: Restores shield based on remaining time (more effective if collected early)
 - **Lives Mode**: Adds 1 life (unlimited maximum)
 
 ### Enemy Behavior

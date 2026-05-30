@@ -46,8 +46,8 @@ public class MenuState extends GameState {
         // Store menu items with text only - positions will be calculated dynamically during render
         menuItems = new ArrayList<>();
         menuItems.add(new MenuItem("Start", 0, 0));
+        menuItems.add(new MenuItem("Configuration", 0, 0));
         menuItems.add(new MenuItem("Instructions", 0, 0));
-        menuItems.add(new MenuItem("Config", 0, 0));
         menuItems.add(new MenuItem("About", 0, 0));
         menuItems.add(new MenuItem("Exit", 0, 0));
 
@@ -196,7 +196,7 @@ public class MenuState extends GameState {
                 LOGGER.fine("Opening instructions");
                 gsm.setState(new InstructionsState(gsm));
                 break;
-            case "Config":
+            case "Configuration":
                 LOGGER.fine("Opening config");
                 gsm.setState(new ConfigState(gsm));
                 break;

@@ -19,8 +19,7 @@ A 2D space shooter game built with JavaFX featuring a player-controlled spaceshi
 - **Shield/Lives**: Two game modes available
 
 ### Game Modes
-1. **Shield Level Mode**: Player has shield percentage (100%), hearts restore shield based on remaining time
-2. **Lives Mode**: Player starts with 3 lives, can collect unlimited lives via hearts
+1. **Lives Mode**: Player starts with 3 lives, can collect unlimited lives via hearts
 
 ### Level Progression
 
@@ -91,7 +90,6 @@ When starting at level K > 1:
 - **Dimming**: Brightness reduces from 100% to 10% over the duration
 - **Fade-in**: 1 second fade-in animation when appearing
 - **Effects**:
-  - Shield Level Mode: Restores shield percentage based on remaining time (more effective if collected early)
   - Lives Mode: Adds 1 life (unlimited maximum)
   - Live Forever Mode: No effect (more effective if collected early)
 
@@ -109,15 +107,15 @@ Each enemy has a unique sprite animation with distinct visual design:
 #### Enemy Behavior System
 Enemies use bit-flag system for behavior combinations:
 - **Base Behavior** (all enemies):
-  - Navigate toward player at 0.5 of player's max speed
+  - Navigate toward player at 0.5 × LIGHT_SPEED
   - Rotation speed is 1/3 of player's rotation speed
-  - Accelerate at half the player's acceleration rate when player accelerates
-  - Instantly decelerate to match player speed when player slows down
+  - Accelerate at 0.125 × LIGHT_SPEED per second when player accelerates
+  - Decelerate at 1.0 × LIGHT_SPEED per second when player slows down
 
 - **0x01 (Wiggle)**: Direction modified by 45° × sin(time × π)
 - **0x02 (Fast Rotation)**: Rotation speed is 3× player's rotation speed (instead of 1/3)
 - **0x04 (Prediction)**: Targets predicted position 0.1-1.5 seconds ahead (includes rolling state estimation, randomized every 10s)
-- **0x08 (Random Speed)**: Speed randomly varies between 0.5 and 1.1 of max speed with unique intervals (5-15s) per enemy, using starship's acceleration/deceleration rates
+- **0x08 (Random Speed)**: Speed randomly varies between 0.5 and 1.1 × LIGHT_SPEED with unique intervals (5-15s) per enemy
 
 #### Blind Steering
 - When player enters wormhole, enemies lose tracking
@@ -181,32 +179,31 @@ Opened by pressing **S** during gameplay; pauses the game and pushes `ShopState`
 | Ship | Cost | Description |
 |------|------|-------------|
 | Ship 1 | 0 (default) | Standard |
-| Ship 2 | 50 EXP | 2× speed, 2× acceleration |
-| Ship 3 | 80 EXP | 5× turn speed (tracking), 2× (keys) |
-| Ship 4 | 150 EXP | 5× turn speed + 4× burst |
+| Ship 2 | 200 EXP | 2× speed, 2× acceleration |
+| Ship 3 | 500 EXP | 5× turn speed (tracking), 2× (keys) |
+| Ship 4 | 1000 EXP | 42× burst acceleration, 4× max speed |
 
 #### Fire Modes (4 modes)
 | Mode | Cost | Description |
 |------|------|-------------|
 | Manual | 0 (default) | Click to fire |
-| Semi-Auto | 30 EXP | Click, 0.3s rate |
-| Auto | 75 EXP | Auto-fire at 0.3s interval |
-| Vulkan | 150 EXP | Auto-fire at 0.1s interval |
+| Semi-Auto | 100 EXP | Click, 0.3s rate |
+| Auto | 200 EXP | Auto-fire at 0.3s interval |
+| Vulkan | 400 EXP | Auto-fire at 0.1s interval |
 
 #### Weapons (2 types)
 | Weapon | Cost | Description |
 |--------|------|-------------|
 | Bullet | 0 (default) | Standard projectile |
-| Torpedo | 80 EXP | Homing, 5s lifetime |
+| Torpedo | 600 EXP | Homing, 5s lifetime |
 
 #### Shields
 - **Hit Shield**: 40 EXP → +5 hits of protection; stackable
-- **Timed Shield**: 60 EXP → +60 seconds of protection; stackable
+- **Timed Shield**: 80 EXP → +60 seconds of protection; stackable
 - Only one shield type can be active at a time; switch for free in the shop
 
 #### Mode-specific options
-- **Lives mode**: Extra Life for 10 EXP (+1 life)
-- **Shield mode**: Shield +5% for 5 EXP (capped at 100%)
+- **Lives**: Buy extra lives (10 EXP each)
 
 #### Actions
 - **Continue**: Resume the game
@@ -253,11 +250,11 @@ where scaleX = currentWidth / 1920
 ### Player Spaceship Physics
 
 **Base Constants (at 1920×1080):**
-- `BASE_SPEED = 200.0` pixels/second
-- `BASE_MIN_SPEED = 50.0` pixels/second
-- `BASE_MAX_SPEED = 400.0` pixels/second
-- `BASE_ACCELERATION_RATE = 100.0` pixels/second²
-- `BASE_DECELERATION_RATE = 400.0` pixels/second²
+- `LIGHT_SPEED = 450.0` pixels/second
+- `BASE_MIN_SPEED = 0.125 × LIGHT_SPEED` = 56.25 pixels/second
+- `BASE_MAX_SPEED = 1.0 × LIGHT_SPEED` = 450 pixels/second (ship 1)
+- `BASE_ACCELERATION_RATE = 0.25 × LIGHT_SPEED` = 112.5 pixels/second²
+- `BASE_DECELERATION_RATE = 1.0 × LIGHT_SPEED` = 450 pixels/second²
 - `rotationSpeed = 2.0` radians/second (not scaled)
 - `BASE_SIZE = 30.0` pixels
 
@@ -348,29 +345,29 @@ else (expanding)
 **Enemy Speed Calculation:**
 ```
 // Base target speed (all enemies without skill 0x08)
-baseTargetSpeed = spaceship.maxSpeed × 0.5
+baseTargetSpeed = LIGHT_SPEED × 0.5
 
 // Skill 0x08: Random Speed Variation (per enemy)
 if (enemyType & 0x08)
     // Each enemy has unique target speed and update interval
     speedChangeTimer += deltaTime
     if (speedChangeTimer >= speedChangeInterval)  // 5-15 seconds, unique per enemy
-        targetSpeed = spaceship.maxSpeed × (0.5 + random(0, 0.6))  // 0.5 to 1.1
+        targetSpeed = LIGHT_SPEED × (0.5 + random(0, 0.6))  // 0.5 to 1.1
         speedChangeInterval = 5.0 + random(0, 10.0)  // New random interval
-    
-    // Accelerate/decelerate using starship's rates
+
+    // Accelerate/decelerate using LIGHT_SPEED-based rates
     if (speed < targetSpeed)
-        speed += spaceship.accelerationRate × deltaTime
+        speed += 0.25 × LIGHT_SPEED × deltaTime
     else if (speed > targetSpeed)
-        speed -= spaceship.decelerationRate × deltaTime
+        speed -= 1.0 × LIGHT_SPEED × deltaTime
 else
     // Normal enemies: adaptive speed matching
     if (spaceship_accelerating)
-        spaceshipAccelRate = (spaceship.speed - previousSpeed) / deltaTime
-        speed += (spaceshipAccelRate × 0.5) × deltaTime
-        speed = min(speed, baseTargetSpeed)  // Cap at 0.5 of max
+        speed += 0.125 × LIGHT_SPEED × deltaTime
+        speed = min(speed, baseTargetSpeed)
     else if (spaceship_decelerating)
-        speed = spaceship.speed  // Instant match
+        speed -= 1.0 × LIGHT_SPEED × deltaTime
+        speed = max(speed, baseTargetSpeed)
     else
         speed += (baseTargetSpeed - speed) × min(1.0, deltaTime × 2.0)
 ```
@@ -513,13 +510,8 @@ brightness = 100% - (timer / duration) × 90%
 brightness = clamp(brightness, 10%, 100%)
 ```
 
-**Shield Restoration (Shield Level Mode):**
-```
-remainingTime = 30.0 - heartTimer
-restorationAmount = (remainingTime / 30.0) × 100.0
-shieldPercentage = min(100.0, shieldPercentage + restorationAmount)
-```
-Formula: Earlier collection = more restoration (linear)
+**Effect (Lives Mode):**
+- Adds 1 life (unlimited maximum)
 
 ### Collision Detection
 
@@ -536,10 +528,6 @@ if (distance < collisionRadius)
 
 ### Damage System
 
-**Shield Mode:**
-- Damage per hit: 1-10% (randomized)
-- Game over when shield reaches 0%
-
 **Lives Mode:**
 - Lose 1 life per hit
 - 5-second immunity after losing a life
@@ -547,11 +535,10 @@ if (distance < collisionRadius)
 
 **Immunity Shield Animation:**
 ```
-if (LIVES mode and immune)
-    pulseProgress = (gameTime mod 1.0) / 1.0  // 1 second cycle
-    pulseScale = 0.9 + sin(pulseProgress × 2π) × 0.1  // Scale: 0.9-1.1
-    circleRadius = spaceship.size × 1.5 × pulseScale
-    color = Blue with 40% opacity
+pulseProgress = (immunityTimer mod 0.5) / 0.5  // 0.5 second cycle
+pulseScale = 0.9 + sin(pulseProgress × 2π) × 0.1  // Scale: 0.9-1.1
+circleRadius = spaceship.size × 1.5 × pulseScale
+color = Cyan with 60% opacity
 ```
 
 ### Animation Timing

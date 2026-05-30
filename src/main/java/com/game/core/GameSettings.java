@@ -21,7 +21,6 @@ public class GameSettings {
     private ResolutionMode resolutionMode = ResolutionMode.AUTO;
     private int customWidth = 1920;
     private int customHeight = 1080;
-    private GameType gameType = GameType.SHIELD;
     private boolean debugMode = false; // Default to off, will be loaded from config
 
     // Private constructor for singleton
@@ -118,16 +117,6 @@ public class GameSettings {
                 }
             }
 
-            // Load game type
-            String gameTypeStr = props.getProperty("game_type");
-            if (gameTypeStr != null) {
-                try {
-                    gameType = GameType.valueOf(gameTypeStr);
-                } catch (IllegalArgumentException e) {
-                    LOGGER.warning("Invalid game_type in config: " + gameTypeStr);
-                }
-            }
-
             LOGGER.fine("Settings loaded from: " + configPath);
         } catch (IOException e) {
             LOGGER.warning("Failed to load settings from: " + configPath + " - " + e.getMessage());
@@ -170,7 +159,6 @@ public class GameSettings {
         props.setProperty("resolution_mode", resolutionMode.name());
         props.setProperty("custom_width", String.valueOf(customWidth));
         props.setProperty("custom_height", String.valueOf(customHeight));
-        props.setProperty("game_type", gameType.name());
 
         try (OutputStream output = Files.newOutputStream(configPath)) {
             props.store(output, "Googoo Game Settings");
@@ -215,14 +203,10 @@ public class GameSettings {
         saveSettings();
     }
 
-    /**
-     * Gets the resolved starting level as an integer.
-     * If "auto", returns the last level reached for the current game type.
-     */
     public int getResolvedStartingLevel() {
         if (startingLevel.equals("auto")) {
             ProgressManager progressManager = ProgressManager.getInstance();
-            return progressManager.getLastLevel(gameType);
+            return progressManager.getLastLevel();
         } else {
             try {
                 return Integer.parseInt(startingLevel);
@@ -256,15 +240,6 @@ public class GameSettings {
 
     public void setCustomHeight(int height) {
         this.customHeight = height;
-        saveSettings();
-    }
-
-    public GameType getGameType() {
-        return gameType;
-    }
-
-    public void setGameType(GameType type) {
-        this.gameType = type;
         saveSettings();
     }
 
@@ -315,18 +290,4 @@ public class GameSettings {
         }
     }
 
-    public enum GameType {
-        SHIELD("Shield Level"),
-        LIVES("Lives");
-
-        private final String displayName;
-
-        GameType(String displayName) {
-            this.displayName = displayName;
-        }
-
-        public String getDisplayName() {
-            return displayName;
-        }
-    }
 }
