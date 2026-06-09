@@ -4,10 +4,11 @@ import javafx.scene.image.Image;
 import javafx.scene.image.PixelReader;
 import javafx.scene.image.WritableImage;
 
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class GemSpriteLoader {
-    private static final Logger LOGGER = Logger.getLogger(GemSpriteLoader.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(GemSpriteLoader.class);
     private static final int SPRITE_SIZE = 80;
     private static final int FRAMES = 16;
     private static final int COLS = 4;

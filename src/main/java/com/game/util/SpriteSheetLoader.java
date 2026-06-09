@@ -4,14 +4,15 @@ import javafx.scene.image.Image;
 import javafx.scene.image.PixelReader;
 import javafx.scene.image.WritableImage;
 
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Utility class for loading sprite sheets and extracting individual frames.
  * Provides common functionality used by all sprite loaders.
  */
 public class SpriteSheetLoader {
-    private static final Logger LOGGER = Logger.getLogger(SpriteSheetLoader.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(SpriteSheetLoader.class);
 
     /**
      * Loads a sprite sheet and extracts frames from it.
@@ -28,7 +29,7 @@ public class SpriteSheetLoader {
             Image sheet = new Image(loaderClass.getResourceAsStream(resourcePath));
 
             if (sheet.isError()) {
-                LOGGER.warning("Error loading sprite sheet: " + resourcePath);
+                LOGGER.warn("Error loading sprite sheet: {}", resourcePath);
                 return null;
             }
 
@@ -45,11 +46,11 @@ public class SpriteSheetLoader {
                 frames[i] = frameImage;
             }
 
-            LOGGER.fine("Sprite sheet loaded successfully: " + resourcePath + " (" + frameCount + " frames)");
+            LOGGER.debug("Sprite sheet loaded successfully: {} ({} frames)", resourcePath, frameCount);
             return frames;
 
         } catch (Exception e) {
-            LOGGER.warning("Exception loading sprite sheet " + resourcePath + ": " + e.getMessage());
+            LOGGER.warn("Exception loading sprite sheet {}: {}", resourcePath, e.getMessage());
             return null;
         }
     }
@@ -71,7 +72,7 @@ public class SpriteSheetLoader {
             Image sheet = new Image(loaderClass.getResourceAsStream(resourcePath));
 
             if (sheet.isError()) {
-                LOGGER.warning("Error loading sprite sheet: " + resourcePath);
+                LOGGER.warn("Error loading sprite sheet: {}", resourcePath);
                 return null;
             }
 
@@ -88,11 +89,11 @@ public class SpriteSheetLoader {
                 frames[i] = frameImage;
             }
 
-            LOGGER.fine("Sprite sheet loaded successfully: " + resourcePath + " (" + frameCount + " frames)");
+            LOGGER.debug("Sprite sheet loaded successfully: {} ({} frames)", resourcePath, frameCount);
             return frames;
 
         } catch (Exception e) {
-            LOGGER.warning("Exception loading sprite sheet " + resourcePath + ": " + e.getMessage());
+            LOGGER.warn("Exception loading sprite sheet {}: {}", resourcePath, e.getMessage());
             return null;
         }
     }

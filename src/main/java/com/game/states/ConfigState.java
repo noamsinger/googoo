@@ -13,10 +13,11 @@ import javafx.scene.text.FontWeight;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ConfigState extends GameState {
-    private static final Logger LOGGER = Logger.getLogger(ConfigState.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(ConfigState.class);
 
     private enum ConfigOption {
         STARTING_LEVEL,
@@ -49,7 +50,7 @@ public class ConfigState extends GameState {
         try {
             backgroundImage = new Image(getClass().getResourceAsStream("/images/background.png"));
         } catch (Exception e) {
-            LOGGER.warning("Failed to load background image: " + e.getMessage());
+            LOGGER.warn("Failed to load background image: {}", e.getMessage());
             backgroundImage = null;
         }
 

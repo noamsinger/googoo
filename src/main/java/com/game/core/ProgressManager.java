@@ -8,10 +8,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ProgressManager {
-    private static final Logger LOGGER = Logger.getLogger(ProgressManager.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(ProgressManager.class);
     private static final String CONFIG_DIR_NAME = ".config/googoo";
     private static final String PROGRESS_FILE_NAME = "googoo-levels.json";
     private static final int FORMAT_VERSION = 2;
@@ -52,7 +53,7 @@ public class ProgressManager {
                 Files.createDirectories(configDir);
             }
         } catch (IOException e) {
-            LOGGER.warning("Error creating config directory: " + e.getMessage());
+            LOGGER.warn("Error creating config directory: {}", e.getMessage());
         }
     }
 
@@ -144,7 +145,7 @@ public class ProgressManager {
         try (FileWriter writer = new FileWriter(getProgressFilePath().toFile())) {
             writer.write(sb.toString());
         } catch (IOException e) {
-            LOGGER.warning("Error saving progress: " + e.getMessage());
+            LOGGER.warn("Error saving progress: {}", e.getMessage());
         }
     }
 
@@ -162,7 +163,7 @@ public class ProgressManager {
             String content = new String(Files.readAllBytes(path));
             parseJson(content);
         } catch (IOException e) {
-            LOGGER.warning("Error loading progress: " + e.getMessage());
+            LOGGER.warn("Error loading progress: {}", e.getMessage());
         }
     }
 
@@ -198,7 +199,7 @@ public class ProgressManager {
                 pos = objEnd + 1;
             }
         } catch (Exception e) {
-            LOGGER.warning("Error parsing progress JSON: " + e.getMessage());
+            LOGGER.warn("Error parsing progress JSON: {}", e.getMessage());
         }
     }
 
@@ -231,7 +232,7 @@ public class ProgressManager {
                     hitShieldRemaining, timedShieldRemaining, shieldType);
             progressMap.put(progress.getKey(), progress);
         } catch (Exception e) {
-            LOGGER.warning("Error parsing level entry: " + e.getMessage());
+            LOGGER.warn("Error parsing level entry: {}", e.getMessage());
         }
     }
 
@@ -328,15 +329,15 @@ public class ProgressManager {
                                 0, 0, null, null, 0, 0.0, "none");
                         progressMap.put(progress.getKey(), progress);
                     } catch (NumberFormatException e) {
-                        LOGGER.warning("Error migrating level " + prefix + ": " + e.getMessage());
+                    LOGGER.warn("Error migrating level {}: {}", prefix, e.getMessage());
                     }
                 }
             }
 
             save();
-            LOGGER.info("Migration complete. Old file preserved at: " + legacyPath);
+            LOGGER.info("Migration complete. Old file preserved at: {}", legacyPath);
         } catch (IOException e) {
-            LOGGER.warning("Error migrating from legacy format: " + e.getMessage());
+            LOGGER.warn("Error migrating from legacy format: {}", e.getMessage());
         }
     }
 

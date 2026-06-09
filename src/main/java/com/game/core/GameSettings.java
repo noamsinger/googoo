@@ -5,10 +5,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Properties;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class GameSettings {
-    private static final Logger LOGGER = Logger.getLogger(GameSettings.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(GameSettings.class);
     private static final String CONFIG_DIR_NAME = ".config/googoo";
     private static final String CONFIG_FILE_NAME = "googoo.ini";
     private static final String DEBUG_CONFIG_FILE_NAME = "googoo-debug.ini";
@@ -52,9 +53,9 @@ public class GameSettings {
         if (!Files.exists(configDir)) {
             try {
                 Files.createDirectories(configDir);
-                LOGGER.info("Created config directory: " + configDir);
+                LOGGER.info("Created config directory: {}", configDir);
             } catch (IOException e) {
-                LOGGER.warning("Failed to create config directory: " + configDir + " - " + e.getMessage());
+                LOGGER.warn("Failed to create config directory: {} - {}", configDir, e.getMessage());
             }
         }
     }
@@ -63,7 +64,7 @@ public class GameSettings {
         Path configPath = getConfigFilePath();
 
         if (!Files.exists(configPath)) {
-            LOGGER.fine("Config file not found at: " + configPath + ", using defaults");
+            LOGGER.debug("Config file not found at: {}, using defaults", configPath);
             return;
         }
 
@@ -82,7 +83,7 @@ public class GameSettings {
                         level = Math.max(1, Math.min(32, level));
                         startingLevel = String.valueOf(level);
                     } catch (NumberFormatException e) {
-                        LOGGER.warning("Invalid starting_level in config: " + levelStr + ", using 'auto'");
+                        LOGGER.warn("Invalid starting_level in config: {}, using 'auto'", levelStr);
                         startingLevel = "auto";
                     }
                 }
@@ -94,7 +95,7 @@ public class GameSettings {
                 try {
                     resolutionMode = ResolutionMode.valueOf(resModeStr);
                 } catch (IllegalArgumentException e) {
-                    LOGGER.warning("Invalid resolution_mode in config: " + resModeStr);
+                    LOGGER.warn("Invalid resolution_mode in config: {}", resModeStr);
                 }
             }
 
@@ -104,7 +105,7 @@ public class GameSettings {
                 try {
                     customWidth = Integer.parseInt(widthStr);
                 } catch (NumberFormatException e) {
-                    LOGGER.warning("Invalid custom_width in config: " + widthStr);
+                    LOGGER.warn("Invalid custom_width in config: {}", widthStr);
                 }
             }
 
@@ -113,13 +114,13 @@ public class GameSettings {
                 try {
                     customHeight = Integer.parseInt(heightStr);
                 } catch (NumberFormatException e) {
-                    LOGGER.warning("Invalid custom_height in config: " + heightStr);
+                    LOGGER.warn("Invalid custom_height in config: {}", heightStr);
                 }
             }
 
-            LOGGER.fine("Settings loaded from: " + configPath);
+            LOGGER.debug("Settings loaded from: {}", configPath);
         } catch (IOException e) {
-            LOGGER.warning("Failed to load settings from: " + configPath + " - " + e.getMessage());
+            LOGGER.warn("Failed to load settings from: {} - {}", configPath, e.getMessage());
         }
 
         // Load debug mode
@@ -130,7 +131,7 @@ public class GameSettings {
         Path debugConfigPath = getDebugConfigFilePath();
 
         if (!Files.exists(debugConfigPath)) {
-            LOGGER.fine("Debug config file not found at: " + debugConfigPath + ", using default (disabled)");
+            LOGGER.debug("Debug config file not found at: {}, using default (disabled)", debugConfigPath);
             return;
         }
 
@@ -143,9 +144,9 @@ public class GameSettings {
                 debugMode = Boolean.parseBoolean(debugModeStr);
             }
 
-            LOGGER.fine("Debug mode loaded from: " + debugConfigPath + " - debugMode=" + debugMode);
+            LOGGER.debug("Debug mode loaded from: {} - debugMode={}", debugConfigPath, debugMode);
         } catch (IOException e) {
-            LOGGER.warning("Failed to load debug mode from: " + debugConfigPath + " - " + e.getMessage());
+            LOGGER.warn("Failed to load debug mode from: {} - {}", debugConfigPath, e.getMessage());
         }
     }
 
@@ -162,9 +163,9 @@ public class GameSettings {
 
         try (OutputStream output = Files.newOutputStream(configPath)) {
             props.store(output, "Googoo Game Settings");
-            LOGGER.info("Settings saved to: " + configPath);
+            LOGGER.info("Settings saved to: {}", configPath);
         } catch (IOException e) {
-            LOGGER.warning("Failed to save settings to: " + configPath + " - " + e.getMessage());
+            LOGGER.warn("Failed to save settings to: {} - {}", configPath, e.getMessage());
         }
     }
 
@@ -178,9 +179,9 @@ public class GameSettings {
 
         try (OutputStream output = Files.newOutputStream(debugConfigPath)) {
             props.store(output, "Googoo Debug Mode Configuration");
-            LOGGER.info("Debug mode saved to: " + debugConfigPath + " - debugMode=" + debugMode);
+            LOGGER.info("Debug mode saved to: {} - debugMode={}", debugConfigPath, debugMode);
         } catch (IOException e) {
-            LOGGER.warning("Failed to save debug mode to: " + debugConfigPath + " - " + e.getMessage());
+            LOGGER.warn("Failed to save debug mode to: {} - {}", debugConfigPath, e.getMessage());
         }
     }
 

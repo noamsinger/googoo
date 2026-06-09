@@ -2,6 +2,7 @@ package com.game.states;
 
 import com.game.core.Game;
 import com.game.core.GameSettings;
+import com.game.core.LoggingConfigurator;
 import com.game.core.ProgressManager;
 import com.game.core.LevelProgress;
 import com.game.util.BlackHoleSpriteLoader;
@@ -22,11 +23,11 @@ import javafx.scene.paint.Color;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class PlayState extends GameState {
-    private static final Logger LOGGER = Logger.getLogger(PlayState.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(PlayState.class);
 
     // Reference resolution for physics calculations (1920x1080)
     private static final double REFERENCE_WIDTH = 1920.0;
@@ -147,19 +148,19 @@ public class PlayState extends GameState {
         boolean debugMode = settings.isDebugMode();
 
         // Set logger level based on debug mode
-        setGlobalLogLevel(debugMode ? Level.FINE : Level.INFO);
+        setGlobalLogLevel(debugMode);
 
-        LOGGER.fine("PlayState init - Setting fullscreen to true");
-        LOGGER.fine("Before setFullscreen - gameWidth=" + Game.gameWidth + ", gameHeight=" + Game.gameHeight);
+        LOGGER.debug("PlayState init - Setting fullscreen to true");
+        LOGGER.debug("Before setFullscreen - gameWidth={}, gameHeight={}", Game.gameWidth, Game.gameHeight);
 
         Game.setFullscreen(true);
 
-        LOGGER.fine("After setFullscreen - gameWidth=" + Game.gameWidth + ", gameHeight=" + Game.gameHeight);
+        LOGGER.debug("After setFullscreen - gameWidth={}, gameHeight={}", Game.gameWidth, Game.gameHeight);
 
         // Calculate resolution scaling factors
         scaleX = Game.gameWidth / REFERENCE_WIDTH;
         scaleY = Game.gameHeight / REFERENCE_HEIGHT;
-        LOGGER.fine("Resolution scaling factors - scaleX=" + scaleX + ", scaleY=" + scaleY);
+        LOGGER.debug("Resolution scaling factors - scaleX={}, scaleY={}", scaleX, scaleY);
 
         random = new Random();
         stars = new ArrayList<>();
@@ -168,7 +169,7 @@ public class PlayState extends GameState {
             stars.add(createStar());
         }
 
-        LOGGER.fine("Created " + stars.size() + " stars");
+        LOGGER.debug("Created {} stars", stars.size());
 
         // Initialize spaceship at center
         spaceship = new Spaceship(Game.gameWidth / 2.0, Game.gameHeight / 2.0);
@@ -212,8 +213,7 @@ public class PlayState extends GameState {
             hitShieldRemaining = levelProgress.getHitShieldRemaining();
             timedShieldRemaining = levelProgress.getTimedShieldRemaining();
             activeShieldType = levelProgress.getShieldType();
-            LOGGER.fine("Restored progress for level " + currentLevel + ": exp=" + exp +
-                       ", lives=" + remainingLives);
+            LOGGER.debug("Restored progress for level {}: exp={}, lives={}", currentLevel, exp, remainingLives);
         } else {
             // Starting fresh - record initial state for this level
             exp = 0;
@@ -225,7 +225,7 @@ public class PlayState extends GameState {
                                                ownedWeaponModes, ownedWeapons,
                                                hitShieldRemaining, timedShieldRemaining,
                                                activeShieldType);
-            LOGGER.fine("Starting fresh at level " + currentLevel);
+            LOGGER.debug("Starting fresh at level {}", currentLevel);
         }
 
         // Show starting level message
@@ -264,7 +264,7 @@ public class PlayState extends GameState {
         bullets = new ArrayList<>();
         spawnInitialGems();
 
-        LOGGER.info("Starting at level " + currentLevel + " with " + blackHoles.size() / 2 + " black hole pairs and " + enemies.size() + " enemies");
+        LOGGER.info("Starting at level {} with {} black hole pairs and {} enemies", currentLevel, blackHoles.size() / 2, enemies.size());
     }
 
     private Star createStar() {
@@ -347,7 +347,7 @@ public class PlayState extends GameState {
             if (immunityTimer >= IMMUNITY_DURATION) {
                 isImmune = false;
                 immunityTimer = 0.0;
-                LOGGER.fine("Immunity period ended");
+                LOGGER.debug("Immunity period ended");
             }
         }
 
@@ -384,8 +384,7 @@ public class PlayState extends GameState {
                                                ownedWeaponModes, ownedWeapons,
                                                hitShieldRemaining, timedShieldRemaining,
                                                activeShieldType);
-            LOGGER.fine("Recorded progress for level " + currentLevel + ": exp=" + exp +
-                       ", lives=" + remainingLives);
+            LOGGER.debug("Recorded progress for level {}: exp={}, lives={}", currentLevel, exp, remainingLives);
 
             // On even levels, add a black hole pair
             if (currentLevel % 2 == 0) {
@@ -402,7 +401,7 @@ public class PlayState extends GameState {
                 addEnemy(enemyType);
             }
 
-            LOGGER.info("Advanced to level " + currentLevel + ", black hole pairs: " + (blackHoles.size() / 2) + ", enemies: " + enemies.size());
+            LOGGER.info("Advanced to level {}, black hole pairs: {}, enemies: {}", currentLevel, blackHoles.size() / 2, enemies.size());
         }
 
         // Update level message timer
@@ -668,7 +667,7 @@ public class PlayState extends GameState {
 
                         // Lives mode: reduce lives by 1 and start immunity
                         remainingLives--;
-                        LOGGER.fine("Life lost! Remaining lives: " + remainingLives);
+                        LOGGER.debug("Life lost! Remaining lives: {}", remainingLives);
                         if (remainingLives <= 0) {
                             remainingLives = 0;
                             starshipExplosion = new StarshipExplosion(spaceship.x, spaceship.y);
@@ -676,7 +675,7 @@ public class PlayState extends GameState {
                         } else {
                             isImmune = true;
                             immunityTimer = 0.0;
-                            LOGGER.fine("Immunity period started (5 seconds)");
+                            LOGGER.debug("Immunity period started (5 seconds)");
                         }
 
                         // Remove enemy from active list and create explosion
@@ -694,7 +693,7 @@ public class PlayState extends GameState {
 
                     if (distance < spaceshipRadius + enemyRadius) {
                         // Collision detected - explode enemy but no damage to spaceship
-                        LOGGER.fine("Debug mode: Enemy collision, no damage taken");
+                        LOGGER.debug("Debug mode: Enemy collision, no damage taken");
                         enemies.remove(i);
                         enemyExplosions.add(new EnemyExplosion(enemy.x, enemy.y, enemy));
                     }
@@ -962,7 +961,7 @@ public class PlayState extends GameState {
 
     @Override
     public void keyPressed(KeyCode key) {
-        LOGGER.fine("PlayState keyPressed: " + key);
+        LOGGER.debug("PlayState keyPressed: {}", key);
         if (key == KeyCode.ESCAPE) {
             gsm.pushState(new PauseState(gsm));
         } else if (key == KeyCode.D && keyShiftPressed) {
@@ -977,10 +976,10 @@ public class PlayState extends GameState {
 
             // Debug mode changed, show message and adjust log level
             if (newDebugMode) {
-                setGlobalLogLevel(Level.FINE);
-                LOGGER.info("Debug mode enabled - log level set to FINE");
+                setGlobalLogLevel(true);
+                LOGGER.info("Debug mode enabled - log level set to DEBUG");
             } else {
-                setGlobalLogLevel(Level.INFO);
+                setGlobalLogLevel(false);
                 LOGGER.info("Debug mode disabled - log level set to INFO");
             }
         } else if (key == KeyCode.SHIFT) {
@@ -2376,7 +2375,7 @@ public class PlayState extends GameState {
         StarshipExplosion(double x, double y) {
             this.x = x;
             this.y = y;
-            LOGGER.fine("Starship explosion started at (" + x + ", " + y + ")");
+            LOGGER.debug("Starship explosion started at ({}, {})", x, y);
         }
 
         void update(double deltaTime) {
@@ -2552,7 +2551,7 @@ public class PlayState extends GameState {
         if (heart == null) return;
 
         remainingLives = remainingLives + 1;
-        LOGGER.fine("Heart collected! Lives: " + remainingLives);
+        LOGGER.debug("Heart collected! Lives: {}", remainingLives);
     }
 
     private class Heart {
@@ -2618,17 +2617,14 @@ public class PlayState extends GameState {
     /**
      * Sets the log level globally for all loggers in the game package.
      */
-    private static void setGlobalLogLevel(Level level) {
-        // Set console handler to output all levels
-        Logger rootLogger = Logger.getLogger("");
-        for (java.util.logging.Handler handler : rootLogger.getHandlers()) {
-            if (handler instanceof java.util.logging.ConsoleHandler) {
-                handler.setLevel(Level.ALL);
-            }
+    private static void setGlobalLogLevel(boolean debug) {
+        if (debug) {
+            LoggingConfigurator.enableDebug();
+        } else {
+            ch.qos.logback.classic.LoggerContext ctx =
+                (ch.qos.logback.classic.LoggerContext) org.slf4j.LoggerFactory.getILoggerFactory();
+            ctx.getLogger("com.game").setLevel(ch.qos.logback.classic.Level.INFO);
         }
-
-        // Set level for all game package loggers
-        Logger.getLogger("com.game").setLevel(level);
     }
 
 }

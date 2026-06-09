@@ -12,10 +12,11 @@ import javafx.scene.text.FontWeight;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class MenuState extends GameState {
-    private static final Logger LOGGER = Logger.getLogger(MenuState.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(MenuState.class);
 
     private List<MenuItem> menuItems;
     private int currentSelection;
@@ -30,7 +31,7 @@ public class MenuState extends GameState {
 
     @Override
     public void init() {
-        LOGGER.fine("MenuState init - GAME_WIDTH=" + Game.WINDOW_WIDTH + ", GAME_HEIGHT=" + Game.WINDOW_HEIGHT);
+        LOGGER.debug("MenuState init - GAME_WIDTH={}, GAME_HEIGHT={}", Game.WINDOW_WIDTH, Game.WINDOW_HEIGHT);
 
         titleFont = Font.font("Arial", FontWeight.BOLD, 48);
         menuFont = Font.font("Arial", FontWeight.NORMAL, 32);
@@ -39,7 +40,7 @@ public class MenuState extends GameState {
         try {
             backgroundImage = new Image(getClass().getResourceAsStream("/images/background.png"));
         } catch (Exception e) {
-            LOGGER.warning("Failed to load background image: " + e.getMessage());
+            LOGGER.warn("Failed to load background image: {}", e.getMessage());
             backgroundImage = null;
         }
 
@@ -185,27 +186,27 @@ public class MenuState extends GameState {
 
     private void selectMenuItem() {
         String selected = menuItems.get(currentSelection).getText();
-        LOGGER.fine("Menu item selected: " + selected);
+        LOGGER.debug("Menu item selected: {}", selected);
 
         switch (selected) {
             case "Start":
-                LOGGER.fine("Starting game - creating PlayState");
+                LOGGER.debug("Starting game - creating PlayState");
                 gsm.setState(new PlayState(gsm));
                 break;
             case "Instructions":
-                LOGGER.fine("Opening instructions");
+                LOGGER.debug("Opening instructions");
                 gsm.setState(new InstructionsState(gsm));
                 break;
             case "Configuration":
-                LOGGER.fine("Opening config");
+                LOGGER.debug("Opening config");
                 gsm.setState(new ConfigState(gsm));
                 break;
             case "About":
-                LOGGER.fine("Opening about");
+                LOGGER.debug("Opening about");
                 gsm.setState(new AboutState(gsm));
                 break;
             case "Exit":
-                LOGGER.fine("Exiting game");
+                LOGGER.debug("Exiting game");
                 Game.setFullscreen(false);
                 System.exit(0);
                 break;

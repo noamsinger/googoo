@@ -13,11 +13,11 @@ import javafx.scene.layout.StackPane;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class Game extends Application {
-    private static final Logger LOGGER = Logger.getLogger(Game.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(Game.class);
 
     public static final int WINDOW_WIDTH = 1024;
     public static final int WINDOW_HEIGHT = 768;
@@ -38,7 +38,7 @@ public class Game extends Application {
 
     @Override
     public void start(Stage stage) {
-        LOGGER.fine("Starting game application");
+        LOGGER.debug("Starting game application");
         primaryStage = stage;
 
         // Show stage early to avoid macOS activation timeout
@@ -50,7 +50,7 @@ public class Game extends Application {
 
         canvas = new Canvas(WINDOW_WIDTH, WINDOW_HEIGHT);
         gc = canvas.getGraphicsContext2D();
-        LOGGER.fine("Canvas created with size: " + WINDOW_WIDTH + "x" + WINDOW_HEIGHT);
+        LOGGER.debug("Canvas created with size: {}x{}", WINDOW_WIDTH, WINDOW_HEIGHT);
 
         gsm = new GameStateManager();
 
@@ -61,7 +61,7 @@ public class Game extends Application {
         scene = new Scene(root, WINDOW_WIDTH, WINDOW_HEIGHT);
 
         scene.setOnKeyPressed(e -> {
-            LOGGER.fine("Key pressed: " + e.getCode());
+            LOGGER.debug("Key pressed: {}", e.getCode());
             gsm.keyPressed(e.getCode());
         });
         scene.setOnKeyReleased(e -> gsm.keyReleased(e.getCode()));
@@ -110,15 +110,15 @@ public class Game extends Application {
             }
         }.start();
 
-        LOGGER.fine("Game loop started");
+        LOGGER.debug("Game loop started");
     }
 
     private void adjustMaxResolution() {
         Rectangle2D visualBounds = Screen.getPrimary().getVisualBounds();
         Rectangle2D screenBounds = Screen.getPrimary().getBounds();
 
-        LOGGER.fine("Visual bounds: " + visualBounds.getWidth() + "x" + visualBounds.getHeight());
-        LOGGER.fine("Actual screen bounds: " + screenBounds.getWidth() + "x" + screenBounds.getHeight());
+        LOGGER.debug("Visual bounds: {}x{}", visualBounds.getWidth(), visualBounds.getHeight());
+        LOGGER.debug("Actual screen bounds: {}x{}", screenBounds.getWidth(), screenBounds.getHeight());
 
         // Use actual screen bounds for fullscreen, not visual bounds
         double screenWidth = screenBounds.getWidth();
@@ -141,28 +141,25 @@ public class Game extends Application {
         gameMaxWidth = maxWidth;
         gameMaxHeight = maxHeight;
 
-        LOGGER.fine("Max game resolution set to: " + gameMaxWidth + "x" + gameMaxHeight);
+        LOGGER.debug("Max game resolution set to: {}x{}", gameMaxWidth, gameMaxHeight);
     }
 
     public static void main(String[] args) {
-        // LoggingConfigurator has already suppressed JavaFX warnings
-        // and configured the console handler (via java.util.logging.config.class)
-
-        // Initialize log level based on debug mode before app starts
-        GameSettings settings = GameSettings.getInstance();
-        Level logLevel = settings.isDebugMode() ? Level.FINE : Level.INFO;
-
-        // Set level for all game package loggers
-        Logger.getLogger("com.game").setLevel(logLevel);
+        for (String arg : args) {
+            if ("--debug".equals(arg)) {
+                LoggingConfigurator.enableDebug();
+                break;
+            }
+        }
 
         launch(args);
     }
 
     public static void setFullscreen(boolean fullscreen) {
         if (primaryStage != null && canvas != null) {
-            LOGGER.fine("setFullscreen called with: " + fullscreen);
-            LOGGER.fine("Current canvas size: " + canvas.getWidth() + "x" + canvas.getHeight());
-            LOGGER.fine("Current GAME dimensions: " + gameWidth + "x" + gameHeight);
+            LOGGER.debug("setFullscreen called with: {}", fullscreen);
+            LOGGER.debug("Current canvas size: {}x{}", canvas.getWidth(), canvas.getHeight());
+            LOGGER.debug("Current GAME dimensions: {}x{}", gameWidth, gameHeight);
 
             // Update game dimensions immediately (synchronously)
             if (fullscreen) {
@@ -177,17 +174,17 @@ public class Game extends Application {
                     gameWidth = resMode.getWidth();
                     gameHeight = resMode.getHeight();
                 }
-                LOGGER.fine("Game dimensions updated to fullscreen: " + gameWidth + "x" + gameHeight + " (mode: " + resMode + ")");
+                LOGGER.debug("Game dimensions updated to fullscreen: {}x{} (mode: {})", gameWidth, gameHeight, resMode);
             } else {
                 gameWidth = WINDOW_WIDTH;
                 gameHeight = WINDOW_HEIGHT;
-                LOGGER.fine("Game dimensions updated to windowed: " + gameWidth + "x" + gameHeight);
+                LOGGER.debug("Game dimensions updated to windowed: {}x{}", gameWidth, gameHeight);
             }
 
             // Then update UI on JavaFX thread
             Platform.runLater(() -> {
                 if (fullscreen) {
-                    LOGGER.fine("Updating canvas and entering fullscreen mode");
+                LOGGER.debug("Updating canvas and entering fullscreen mode");
 
                     // Make resizable temporarily to allow resize
                     primaryStage.setResizable(true);
@@ -202,12 +199,12 @@ public class Game extends Application {
                     primaryStage.setWidth(gameWidth);
                     primaryStage.setHeight(gameHeight);
 
-                    LOGGER.fine("Canvas resized to: " + gameWidth + "x" + gameHeight);
+                    LOGGER.debug("Canvas resized to: {}x{}", gameWidth, gameHeight);
                     primaryStage.setFullScreen(true);
                     primaryStage.setResizable(false);
-                    LOGGER.fine("Fullscreen mode activated");
+                    LOGGER.debug("Fullscreen mode activated");
                 } else {
-                    LOGGER.fine("Updating canvas and entering windowed mode");
+                LOGGER.debug("Updating canvas and entering windowed mode");
                     primaryStage.setResizable(true);
 
                     canvas.setWidth(WINDOW_WIDTH);
@@ -219,14 +216,14 @@ public class Game extends Application {
                     primaryStage.setWidth(WINDOW_WIDTH);
                     primaryStage.setHeight(WINDOW_HEIGHT);
 
-                    LOGGER.fine("Canvas resized to: " + WINDOW_WIDTH + "x" + WINDOW_HEIGHT);
+                    LOGGER.debug("Canvas resized to: {}x{}", WINDOW_WIDTH, WINDOW_HEIGHT);
                     primaryStage.setFullScreen(false);
                     primaryStage.setResizable(false);
-                    LOGGER.fine("Windowed mode activated");
+                    LOGGER.debug("Windowed mode activated");
                 }
             });
         } else {
-            LOGGER.warning("Cannot setFullscreen - primaryStage or canvas is null");
+            LOGGER.warn("Cannot setFullscreen - primaryStage or canvas is null");
         }
     }
 
